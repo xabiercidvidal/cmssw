@@ -90,8 +90,9 @@ namespace {
       segmentPathOvc_.emplace_back(tPath * c_inv);
       segmentMom2_.emplace_back(tMom2);
       segmentSigmaMom_.emplace_back(sigmaMom);
-      nSegment_++;
-
+      nSegment_+=1;
+      
+      
       LogTrace("TrackExtenderWithMTD") << "addSegment # " << nSegment_ << " s = " << tPath
                                        << " p = " << std::sqrt(tMom2) << " sigma_p = " << sigmaMom
                                        << " sigma_p/p = " << sigmaMom / std::sqrt(tMom2) * 100 << " %";
