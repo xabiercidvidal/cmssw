@@ -9,6 +9,7 @@
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
 
+#include "DataFormats/MTDReco/interface/MTDTimingInfo.h"
 #include "DataFormats/VertexReco/interface/Vertex.h"
 #include "DataFormats/TrackerRecHit2D/interface/MTDTrackingRecHit.h"
 #include "DataFormats/ForwardDetId/interface/ETLDetId.h"
@@ -96,13 +97,7 @@ private:
   std::vector<bool> Ttrack_Signal, Ttrack_Associated, Ttrack_TPDirClu, Ttrack_TPOtherClu, Ttrack_isBTL, Ttrack_isETL,
       Ttrack_withMTD;
 
-  edm::EDGetTokenT<edm::ValueMap<float>> btlMatchChi2Token_;
-  edm::EDGetTokenT<edm::ValueMap<float>> btlMatchTimeChi2Token_;
-  edm::EDGetTokenT<edm::ValueMap<float>> etlMatchChi2Token_;
-  edm::EDGetTokenT<edm::ValueMap<float>> etlMatchTimeChi2Token_;
-  edm::EDGetTokenT<edm::ValueMap<int>> npixBarrelToken_;
-  edm::EDGetTokenT<edm::ValueMap<int>> npixEndcapToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> outermostHitPositionToken_;
+  edm::EDGetTokenT<edm::ValueMap<reco::MTDTimingInfo>> mtdTimingInfoToken_;
 
   edm::EDGetTokenT<reco::TrackCollection> RecTrackToken_;
   edm::EDGetTokenT<reco::TrackCollection> RecMTDTrackToken_;
@@ -118,23 +113,11 @@ private:
   edm::EDGetTokenT<FTLClusterCollection> btlRecCluToken_;
   edm::EDGetTokenT<FTLClusterCollection> etlRecCluToken_;
 
-  edm::EDGetTokenT<edm::ValueMap<float>> pathLengthToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> momentumToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> sigmatimeToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> t0SrcToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> sigmat0SrcToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> t0PidToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> sigmat0PidToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> t0SafePidToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> sigmat0SafePidToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> trackMVAQualToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> sigmatofpiToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> sigmatofkToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> sigmatofpToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> tmtdToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> tofPiToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> tofKToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> tofPToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> probPiToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> probKToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> probPToken_;
@@ -161,34 +144,16 @@ MVATrainingNtuple::MVATrainingNtuple(const edm::ParameterSet& iConfig)
   trackingVertexCollectionToken_ = consumes<TrackingVertexCollection>(iConfig.getParameter<edm::InputTag>("SimTag"));
   btlRecCluToken_ = consumes<FTLClusterCollection>(iConfig.getParameter<edm::InputTag>("recCluTagBTL"));
   etlRecCluToken_ = consumes<FTLClusterCollection>(iConfig.getParameter<edm::InputTag>("recCluTagETL"));
-  pathLengthToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("pathLengthSrc"));
-  momentumToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("momentumSrc"));
-  sigmatimeToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("sigmaSrc"));
-  t0SrcToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("t0Src"));
-  sigmat0SrcToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("sigmat0Src"));
+  mtdTimingInfoToken_ =
+      consumes<edm::ValueMap<reco::MTDTimingInfo>>(iConfig.getParameter<edm::InputTag>("mtdTimingInfoSrc"));
   t0PidToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("t0PID"));
   sigmat0PidToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("sigmat0PID"));
   t0SafePidToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("t0SafePID"));
   sigmat0SafePidToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("sigmat0SafePID"));
   trackMVAQualToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("trackMVAQual"));
-  tmtdToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("tmtd"));
-  tofPiToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("tofPi"));
-  tofKToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("tofK"));
-  tofPToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("tofP"));
   probPiToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("probPi"));
   probKToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("probK"));
   probPToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("probP"));
-  sigmatofpiToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("sigmatofpiSrc"));
-  sigmatofkToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("sigmatofkSrc"));
-  sigmatofpToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("sigmatofpSrc"));
-  btlMatchChi2Token_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("btlMatchChi2Src"));
-  btlMatchTimeChi2Token_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("btlMatchTimeChi2Src"));
-  etlMatchChi2Token_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("etlMatchChi2Src"));
-  etlMatchTimeChi2Token_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("etlMatchTimeChi2Src"));
-  npixBarrelToken_ = consumes<edm::ValueMap<int>>(iConfig.getParameter<edm::InputTag>("npixBarrelSrc"));
-  npixEndcapToken_ = consumes<edm::ValueMap<int>>(iConfig.getParameter<edm::InputTag>("npixEndcapSrc"));
-  outermostHitPositionToken_ =
-      consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("outermostHitPositionSrc"));
   saveNtupleforBDT_ = iConfig.getParameter<bool>("ntupleforBDT");
   saveNtupleforGNN_ = iConfig.getParameter<bool>("ntupleforGNN");
   // select and configure the track selection
@@ -341,33 +306,15 @@ void MVATrainingNtuple::analyze(const edm::Event& iEvent, const edm::EventSetup&
   const auto& btlRecCluHandle = iEvent.getHandle(btlRecCluToken_);
   const auto& etlRecCluHandle = iEvent.getHandle(etlRecCluToken_);
 
-  const auto& pathLength = iEvent.get(pathLengthToken_);
-  const auto& momentum = iEvent.get(momentumToken_);
-  const auto& sigmatimemtd = iEvent.get(sigmatimeToken_);
-  const auto& t0Src = iEvent.get(t0SrcToken_);
-  const auto& sigmat0Src = iEvent.get(sigmat0SrcToken_);
+  const auto& mtdTimingInfo = iEvent.get(mtdTimingInfoToken_);
   const auto& t0Pid = iEvent.get(t0PidToken_);
   const auto& sigmat0Pid = iEvent.get(sigmat0PidToken_);
   const auto& t0Safe = iEvent.get(t0SafePidToken_);
   const auto& sigmat0Safe = iEvent.get(sigmat0SafePidToken_);
   const auto& mtdQualMVA = iEvent.get(trackMVAQualToken_);
-  const auto& tMtd = iEvent.get(tmtdToken_);
-  const auto& tofPi = iEvent.get(tofPiToken_);
-  const auto& tofK = iEvent.get(tofKToken_);
-  const auto& tofP = iEvent.get(tofPToken_);
   const auto& probPi = iEvent.get(probPiToken_);
   const auto& probK = iEvent.get(probKToken_);
   const auto& probP = iEvent.get(probPToken_);
-  const auto& sigmatofpi = iEvent.get(sigmatofpiToken_);
-  const auto& sigmatofk = iEvent.get(sigmatofkToken_);
-  const auto& sigmatofp = iEvent.get(sigmatofpToken_);
-  const auto& btlMatchChi2 = iEvent.get(btlMatchChi2Token_);
-  const auto& btlMatchTimeChi2 = iEvent.get(btlMatchTimeChi2Token_);
-  const auto& etlMatchChi2 = iEvent.get(etlMatchChi2Token_);
-  const auto& etlMatchTimeChi2 = iEvent.get(etlMatchTimeChi2Token_);
-  const auto& npixBarrel = iEvent.get(npixBarrelToken_);
-  const auto& npixEndcap = iEvent.get(npixEndcapToken_);
-  const auto& outermostHitPosition = iEvent.get(outermostHitPositionToken_);
 
   // Fill TTree with input variables for GNN
   if (saveNtupleforGNN_) {
@@ -470,29 +417,30 @@ void MVATrainingNtuple::analyze(const edm::Event& iEvent, const edm::EventSetup&
       gnn_phi.push_back((*itk).track().phi());
       gnn_z_pca.push_back((*itk).track().vz());
       gnn_dz.push_back((*itk).track().dzError());
-      gnn_t_Pi.push_back(tMtd[trackref] - tofPi[trackref]);
-      gnn_t_K.push_back(tMtd[trackref] - tofK[trackref]);
-      gnn_t_P.push_back(tMtd[trackref] - tofP[trackref]);
+      const auto& tinfo = mtdTimingInfo[trackref];
+      gnn_t_Pi.push_back(tinfo.tmtd() - tinfo.tofPi());
+      gnn_t_K.push_back(tinfo.tmtd() - tinfo.tofK());
+      gnn_t_P.push_back(tinfo.tmtd() - tinfo.tofP());
       gnn_sigma_t0safe.push_back(sigmat0Safe[trackref]);
-      gnn_sigma_tmtd.push_back(sigmatimemtd[trackref]);
+      gnn_sigma_tmtd.push_back(tinfo.sigmaTmtd());
       gnn_t0safe.push_back(t0Safe[trackref]);
       gnn_t0pid.push_back(t0Pid[trackref]);
       gnn_mva_qual.push_back(mtdQualMVA[trackref]);
-      gnn_btlMatchChi2.push_back(btlMatchChi2[trackref]);
-      gnn_btlMatchTimeChi2.push_back(btlMatchTimeChi2[trackref]);
-      gnn_etlMatchChi2.push_back(etlMatchChi2[trackref]);
-      gnn_etlMatchTimeChi2.push_back(etlMatchTimeChi2[trackref]);
-      gnn_pathLength.push_back(pathLength[trackref]);
-      gnn_npixBarrel.push_back(npixBarrel[trackref]);
-      gnn_npixEndcap.push_back(npixEndcap[trackref]);
-      gnn_outermostHitPosition.push_back(outermostHitPosition[trackref]);
-      gnn_mtdTime.push_back(tMtd[trackref]);
+      gnn_btlMatchChi2.push_back(tinfo.btlMatchChi2());
+      gnn_btlMatchTimeChi2.push_back(tinfo.btlMatchTimeChi2());
+      gnn_etlMatchChi2.push_back(tinfo.etlMatchChi2());
+      gnn_etlMatchTimeChi2.push_back(tinfo.etlMatchTimeChi2());
+      gnn_pathLength.push_back(tinfo.pathLength());
+      gnn_npixBarrel.push_back(tinfo.npixBarrel());
+      gnn_npixEndcap.push_back(tinfo.npixEndcap());
+      gnn_outermostHitPosition.push_back(tinfo.outermostHitPosition());
+      gnn_mtdTime.push_back(tinfo.tmtd());
       gnn_probPi.push_back(probPi[trackref]);
       gnn_probK.push_back(probK[trackref]);
       gnn_probP.push_back(probP[trackref]);
-      gnn_sigma_tof_Pi.push_back(sigmatofpi[trackref]);
-      gnn_sigma_tof_K.push_back(sigmatofk[trackref]);
-      gnn_sigma_tof_P.push_back(sigmatofp[trackref]);
+      gnn_sigma_tof_Pi.push_back(tinfo.sigmaTofPi());
+      gnn_sigma_tof_K.push_back(tinfo.sigmaTofK());
+      gnn_sigma_tof_P.push_back(tinfo.sigmaTofP());
       gnn_trk_chi2.push_back((*itk).track().chi2());
       gnn_trk_ndof.push_back((*itk).track().ndof());
       gnn_trk_validhits.push_back((*itk).track().numberOfValidHits());
@@ -501,7 +449,8 @@ void MVATrainingNtuple::analyze(const edm::Event& iEvent, const edm::EventSetup&
       if (anytp_info != nullptr) {
         gnn_is_matched_tp.push_back(true);
         double anytp_mass = (*anytp_info)->mass();
-        gnn_tp_tEst.push_back(timeFromTrueMass(anytp_mass, pathLength[trackref], momentum[trackref], tMtd[trackref]));
+        gnn_tp_tEst.push_back(
+            timeFromTrueMass(anytp_mass, tinfo.pathLength(), tinfo.p(), tinfo.tmtd()));
         gnn_tp_pdgId.push_back(std::abs((*anytp_info)->pdgId()));
 
         TrackingVertexRef parentVertexRef = (*anytp_info)->parentVertex();
@@ -636,7 +585,7 @@ void MVATrainingNtuple::analyze(const edm::Event& iEvent, const edm::EventSetup&
            isTPmtdCorrect = false;
 
       if (trkRecSel(trackGen)) {
-        if (std::round(sigmatimemtd[trackref] - sigmat0Pid[trackref]) != 0) {
+        if (std::round(mtdTimingInfo[trackref].sigmaTmtd() - sigmat0Pid[trackref]) != 0) {
           LogWarning("mtdTracks")
               << "TimeError associated to refitted track is different from TimeError stored in tofPID "
                  "sigmat0 ValueMap: this should not happen";
@@ -761,20 +710,21 @@ void MVATrainingNtuple::analyze(const edm::Event& iEvent, const edm::EventSetup&
         Ttrack_ndof.push_back(trackGen.ndof());
         Ttrack_nValidHits.push_back(trackGen.numberOfValidHits());
 
-        Ttrack_npixBarrelValidHits.push_back(npixBarrel[trackref]);
-        Ttrack_npixEndcapValidHits.push_back(npixEndcap[trackref]);
-        Ttrack_BTLchi2.push_back(btlMatchChi2[trackref]);
-        Ttrack_BTLtime_chi2.push_back(btlMatchTimeChi2[trackref]);
-        Ttrack_ETLchi2.push_back(etlMatchChi2[trackref]);
-        Ttrack_ETLtime_chi2.push_back(etlMatchTimeChi2[trackref]);
+        const auto& tinfoB = mtdTimingInfo[trackref];
+        Ttrack_npixBarrelValidHits.push_back(tinfoB.npixBarrel());
+        Ttrack_npixEndcapValidHits.push_back(tinfoB.npixEndcap());
+        Ttrack_BTLchi2.push_back(tinfoB.btlMatchChi2());
+        Ttrack_BTLtime_chi2.push_back(tinfoB.btlMatchTimeChi2());
+        Ttrack_ETLchi2.push_back(tinfoB.etlMatchChi2());
+        Ttrack_ETLtime_chi2.push_back(tinfoB.etlMatchTimeChi2());
 
-        Ttrack_t0.push_back(t0Src[trackref]);
-        Ttrack_sigmat0.push_back(sigmat0Src[trackref]);
-        Ttrack_Tmtd.push_back(tMtd[trackref]);
-        Ttrack_sigmaTmtd.push_back(sigmatimemtd[trackref]);
-        Ttrack_length.push_back(pathLength[trackref]);
+        Ttrack_t0.push_back(tinfoB.t0());
+        Ttrack_sigmat0.push_back(tinfoB.sigmaT0());
+        Ttrack_Tmtd.push_back(tinfoB.tmtd());
+        Ttrack_sigmaTmtd.push_back(tinfoB.sigmaTmtd());
+        Ttrack_length.push_back(tinfoB.pathLength());
         Ttrack_MtdMVA.push_back(mtdQualMVA[trackref]);
-        Ttrack_lHitPos.push_back(outermostHitPosition[trackref]);
+        Ttrack_lHitPos.push_back(tinfoB.outermostHitPosition());
 
         Ttrack_isBTL.push_back(isBTL);
         Ttrack_isETL.push_back(isETL);
@@ -825,34 +775,16 @@ void MVATrainingNtuple::fillDescriptions(edm::ConfigurationDescriptions& descrip
       ->setComment("Association between General and MTD Extended tracks");
   desc.add<edm::InputTag>("recCluTagBTL", edm::InputTag("mtdClusters", "FTLBarrel"));
   desc.add<edm::InputTag>("recCluTagETL", edm::InputTag("mtdClusters", "FTLEndcap"));
-  desc.add<edm::InputTag>("pathLengthSrc", edm::InputTag("trackExtenderWithMTD:generalTrackPathLength"));
-  desc.add<edm::InputTag>("momentumSrc", edm::InputTag("trackExtenderWithMTD:generalTrackp"));
-  desc.add<edm::InputTag>("tmtd", edm::InputTag("trackExtenderWithMTD:generalTracktmtd"));
-  desc.add<edm::InputTag>("sigmaSrc", edm::InputTag("trackExtenderWithMTD:generalTracksigmatmtd"));
-  desc.add<edm::InputTag>("t0Src", edm::InputTag("trackExtenderWithMTD:generalTrackt0"));
-  desc.add<edm::InputTag>("sigmat0Src", edm::InputTag("trackExtenderWithMTD:generalTracksigmat0"));
+  desc.add<edm::InputTag>("mtdTimingInfoSrc", edm::InputTag("trackExtenderWithMTD:mtdTimingInfo"))
+      ->setComment("Input ValueMap of MTDTimingInfo from TrackExtenderWithMTD");
   desc.add<edm::InputTag>("t0PID", edm::InputTag("tofPID:t0"));
   desc.add<edm::InputTag>("sigmat0PID", edm::InputTag("tofPID:sigmat0"));
   desc.add<edm::InputTag>("t0SafePID", edm::InputTag("tofPID:t0safe"));
   desc.add<edm::InputTag>("sigmat0SafePID", edm::InputTag("tofPID:sigmat0safe"));
   desc.add<edm::InputTag>("trackMVAQual", edm::InputTag("mtdTrackQualityMVA:mtdQualMVA"));
-  desc.add<edm::InputTag>("tofPi", edm::InputTag("trackExtenderWithMTD:generalTrackTofPi"));
-  desc.add<edm::InputTag>("tofK", edm::InputTag("trackExtenderWithMTD:generalTrackTofK"));
-  desc.add<edm::InputTag>("tofP", edm::InputTag("trackExtenderWithMTD:generalTrackTofP"));
   desc.add<edm::InputTag>("probPi", edm::InputTag("tofPID:probPi"));
   desc.add<edm::InputTag>("probK", edm::InputTag("tofPID:probK"));
   desc.add<edm::InputTag>("probP", edm::InputTag("tofPID:probP"));
-  desc.add<edm::InputTag>("sigmatofpiSrc", edm::InputTag("trackExtenderWithMTD:generalTrackSigmaTofPi"));
-  desc.add<edm::InputTag>("sigmatofkSrc", edm::InputTag("trackExtenderWithMTD:generalTrackSigmaTofK"));
-  desc.add<edm::InputTag>("sigmatofpSrc", edm::InputTag("trackExtenderWithMTD:generalTrackSigmaTofP"));
-  desc.add<edm::InputTag>("btlMatchChi2Src", edm::InputTag("trackExtenderWithMTD", "btlMatchChi2"));
-  desc.add<edm::InputTag>("btlMatchTimeChi2Src", edm::InputTag("trackExtenderWithMTD", "btlMatchTimeChi2"));
-  desc.add<edm::InputTag>("etlMatchChi2Src", edm::InputTag("trackExtenderWithMTD", "etlMatchChi2"));
-  desc.add<edm::InputTag>("etlMatchTimeChi2Src", edm::InputTag("trackExtenderWithMTD", "etlMatchTimeChi2"));
-  desc.add<edm::InputTag>("npixBarrelSrc", edm::InputTag("trackExtenderWithMTD", "npixBarrel"));
-  desc.add<edm::InputTag>("npixEndcapSrc", edm::InputTag("trackExtenderWithMTD", "npixEndcap"));
-  desc.add<edm::InputTag>("outermostHitPositionSrc",
-                          edm::InputTag("trackExtenderWithMTD", "generalTrackOutermostHitPosition"));
   desc.addUntracked<std::string>("fileName", "file.root");
   desc.add<bool>("ntupleforBDT", true);
   desc.add<bool>("ntupleforGNN", false);

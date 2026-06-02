@@ -9,6 +9,7 @@
 
 #include "DataFormats/Common/interface/ValueMap.h"
 #include "DataFormats/HGCalReco/interface/MtdHostCollection.h"
+#include "DataFormats/MTDReco/interface/MTDTimingInfo.h"
 #include "DataFormats/TrackReco/interface/TrackFwd.h"
 #include "DataFormats/TrackReco/interface/Track.h"
 
@@ -25,15 +26,10 @@ public:
 private:
   edm::EDGetTokenT<reco::TrackCollection> tracksToken_;
   edm::EDGetTokenT<edm::ValueMap<int>> trackAssocToken_;
+  edm::EDGetTokenT<edm::ValueMap<reco::MTDTimingInfo>> mtdTimingInfoToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> t0Token_;
   edm::EDGetTokenT<edm::ValueMap<float>> sigmat0Token_;
-  edm::EDGetTokenT<edm::ValueMap<float>> tmtdToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> sigmatmtdToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> betaToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> pathToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> MVAQualityToken_;
-  edm::EDGetTokenT<edm::ValueMap<GlobalPoint>> posInMtdToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> momentumWithMTDToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> probPiToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> probKToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> probPToken_;
@@ -42,15 +38,11 @@ private:
 MTDSoAProducer::MTDSoAProducer(const ParameterSet& iConfig)
     : tracksToken_(consumes<reco::TrackCollection>(iConfig.getParameter<edm::InputTag>("tracksSrc"))),
       trackAssocToken_(consumes<edm::ValueMap<int>>(iConfig.getParameter<edm::InputTag>("trackAssocSrc"))),
+      mtdTimingInfoToken_(
+          consumes<edm::ValueMap<reco::MTDTimingInfo>>(iConfig.getParameter<edm::InputTag>("mtdTimingInfoSrc"))),
       t0Token_(consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("t0Src"))),
       sigmat0Token_(consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("sigmat0Src"))),
-      tmtdToken_(consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("tmtdSrc"))),
-      sigmatmtdToken_(consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("sigmatmtdSrc"))),
-      betaToken_(consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("betamtd"))),
-      pathToken_(consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("pathmtd"))),
       MVAQualityToken_(consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("mvaquality"))),
-      posInMtdToken_(consumes<edm::ValueMap<GlobalPoint>>(iConfig.getParameter<edm::InputTag>("posmtd"))),
-      momentumWithMTDToken_(consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("momentum"))),
       probPiToken_(consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("probPi"))),
       probKToken_(consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("probK"))),
       probPToken_(consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("probP"))) {
@@ -62,15 +54,11 @@ void MTDSoAProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptio
   edm::ParameterSetDescription desc;
   desc.add<edm::InputTag>("tracksSrc", edm::InputTag("generalTracks"));
   desc.add<edm::InputTag>("trackAssocSrc", edm::InputTag("trackExtenderWithMTD:generalTrackassoc"));
+  desc.add<edm::InputTag>("mtdTimingInfoSrc", edm::InputTag("trackExtenderWithMTD:mtdTimingInfo"))
+      ->setComment("Input ValueMap of MTDTimingInfo from TrackExtenderWithMTD");
   desc.add<edm::InputTag>("t0Src", edm::InputTag("tofPID:t0"));
   desc.add<edm::InputTag>("sigmat0Src", edm::InputTag("tofPID:sigmat0"));
-  desc.add<edm::InputTag>("tmtdSrc", edm::InputTag("trackExtenderWithMTD:generalTracktmtd"));
-  desc.add<edm::InputTag>("sigmatmtdSrc", edm::InputTag("trackExtenderWithMTD:generalTracksigmatmtd"));
-  desc.add<edm::InputTag>("betamtd", edm::InputTag("trackExtenderWithMTD:generalTrackBeta"));
-  desc.add<edm::InputTag>("pathmtd", edm::InputTag("trackExtenderWithMTD:generalTrackPathLength"));
   desc.add<edm::InputTag>("mvaquality", edm::InputTag("mtdTrackQualityMVA:mtdQualMVA"));
-  desc.add<edm::InputTag>("posmtd", edm::InputTag("trackExtenderWithMTD:generalTrackmtdpos"));
-  desc.add<edm::InputTag>("momentum", edm::InputTag("trackExtenderWithMTD:generalTrackp"));
   desc.add<edm::InputTag>("probPi", edm::InputTag("tofPID:probPi"));
   desc.add<edm::InputTag>("probK", edm::InputTag("tofPID:probK"));
   desc.add<edm::InputTag>("probP", edm::InputTag("tofPID:probP"));
@@ -84,18 +72,10 @@ void MTDSoAProducer::produce(edm::Event& ev, const edm::EventSetup& es) {
   const auto& tracks = *tracksH;
 
   const auto& trackAssoc = ev.get(trackAssocToken_);
-
+  const auto& mtdTimingInfo = ev.get(mtdTimingInfoToken_);
   const auto& t0 = ev.get(t0Token_);
   const auto& sigmat0 = ev.get(sigmat0Token_);
-
-  const auto& tmtd = ev.get(tmtdToken_);
-  const auto& sigmatmtd = ev.get(sigmatmtdToken_);
-
-  const auto& beta = ev.get(betaToken_);
-  const auto& path = ev.get(pathToken_);
   const auto& MVAquality = ev.get(MVAQualityToken_);
-  const auto& posInMTD = ev.get(posInMtdToken_);
-  const auto& momentum = ev.get(momentumWithMTDToken_);
   const auto& probPi = ev.get(probPiToken_);
   const auto& probK = ev.get(probKToken_);
   const auto& probP = ev.get(probPToken_);
@@ -125,18 +105,19 @@ void MTDSoAProducer::produce(edm::Event& ev, const edm::EventSetup& es) {
       continue;
     }
 
+    const auto& tinfo = mtdTimingInfo[trackref];
     MtdInfoView.trackAsocMTD()[iTrack] = trackAssoc[trackref];
     MtdInfoView.time0()[iTrack] = t0[trackref];
     MtdInfoView.time0Err()[iTrack] = sigmat0[trackref];
-    MtdInfoView.time()[iTrack] = tmtd[trackref];
-    MtdInfoView.timeErr()[iTrack] = sigmatmtd[trackref];
+    MtdInfoView.time()[iTrack] = tinfo.tmtd();
+    MtdInfoView.timeErr()[iTrack] = tinfo.sigmaTmtd();
     MtdInfoView.MVAquality()[iTrack] = MVAquality[trackref];
-    MtdInfoView.pathLength()[iTrack] = path[trackref];
-    MtdInfoView.beta()[iTrack] = beta[trackref];
-    MtdInfoView.posInMTD_x()[iTrack] = posInMTD[trackref].x();
-    MtdInfoView.posInMTD_y()[iTrack] = posInMTD[trackref].y();
-    MtdInfoView.posInMTD_z()[iTrack] = posInMTD[trackref].z();
-    MtdInfoView.momentumWithMTD()[iTrack] = momentum[trackref];
+    MtdInfoView.pathLength()[iTrack] = tinfo.pathLength();
+    MtdInfoView.beta()[iTrack] = tinfo.beta();
+    MtdInfoView.posInMTD_x()[iTrack] = tinfo.mtdPos().x();
+    MtdInfoView.posInMTD_y()[iTrack] = tinfo.mtdPos().y();
+    MtdInfoView.posInMTD_z()[iTrack] = tinfo.mtdPos().z();
+    MtdInfoView.momentumWithMTD()[iTrack] = tinfo.p();
     MtdInfoView.probPi()[iTrack] = probPi[trackref];
     MtdInfoView.probK()[iTrack] = probK[trackref];
     MtdInfoView.probP()[iTrack] = probP[trackref];

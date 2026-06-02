@@ -7,6 +7,8 @@
 #include "RecoMTD/TimingTools/interface/TrackSegments.h"
 #include "RecoMTD/TimingTools/interface/TrackTofPidInfo.h"
 
+#include "DataFormats/MTDReco/interface/MTDTimingInfo.h"
+
 #include "DataFormats/ForwardDetId/interface/BTLDetId.h"
 #include "DataFormats/ForwardDetId/interface/ETLDetId.h"
 #include "DataFormats/ForwardDetId/interface/MTDChannelIdentifier.h"
@@ -264,27 +266,7 @@ public:
   string dumpLayer(const DetLayer* layer) const;
 
 private:
-  edm::EDPutToken btlMatchChi2Token_;
-  edm::EDPutToken etlMatchChi2Token_;
-  edm::EDPutToken btlMatchTimeChi2Token_;
-  edm::EDPutToken etlMatchTimeChi2Token_;
-  edm::EDPutToken npixBarrelToken_;
-  edm::EDPutToken npixEndcapToken_;
-  edm::EDPutToken outermostHitPositionToken_;
-  edm::EDPutToken pOrigTrkToken_;
-  edm::EDPutToken betaOrigTrkToken_;
-  edm::EDPutToken t0OrigTrkToken_;
-  edm::EDPutToken sigmat0OrigTrkToken_;
-  edm::EDPutToken pathLengthOrigTrkToken_;
-  edm::EDPutToken tmtdOrigTrkToken_;
-  edm::EDPutToken sigmatmtdOrigTrkToken_;
-  edm::EDPutToken tmtdPosOrigTrkToken_;
-  edm::EDPutToken tofpiOrigTrkToken_;
-  edm::EDPutToken tofkOrigTrkToken_;
-  edm::EDPutToken tofpOrigTrkToken_;
-  edm::EDPutToken sigmatofpiOrigTrkToken_;
-  edm::EDPutToken sigmatofkOrigTrkToken_;
-  edm::EDPutToken sigmatofpOrigTrkToken_;
+  edm::EDPutToken mtdTimingInfoToken_;
   edm::EDPutToken assocOrigTrkToken_;
 
   edm::EDGetTokenT<InputCollection> tracksToken_;
@@ -351,27 +333,7 @@ TrackExtenderWithMTDT<TrackCollection>::TrackExtenderWithMTDT(const ParameterSet
   theEstimator = std::make_unique<Chi2MeasurementEstimator>(estMaxChi2_, estMaxNSigma_);
   theTransformer = std::make_unique<TrackTransformer>(iConfig.getParameterSet("TrackTransformer"), consumesCollector());
 
-  btlMatchChi2Token_ = produces<edm::ValueMap<float>>("btlMatchChi2");
-  etlMatchChi2Token_ = produces<edm::ValueMap<float>>("etlMatchChi2");
-  btlMatchTimeChi2Token_ = produces<edm::ValueMap<float>>("btlMatchTimeChi2");
-  etlMatchTimeChi2Token_ = produces<edm::ValueMap<float>>("etlMatchTimeChi2");
-  npixBarrelToken_ = produces<edm::ValueMap<int>>("npixBarrel");
-  npixEndcapToken_ = produces<edm::ValueMap<int>>("npixEndcap");
-  outermostHitPositionToken_ = produces<edm::ValueMap<float>>("generalTrackOutermostHitPosition");
-  pOrigTrkToken_ = produces<edm::ValueMap<float>>("generalTrackp");
-  betaOrigTrkToken_ = produces<edm::ValueMap<float>>("generalTrackBeta");
-  t0OrigTrkToken_ = produces<edm::ValueMap<float>>("generalTrackt0");
-  sigmat0OrigTrkToken_ = produces<edm::ValueMap<float>>("generalTracksigmat0");
-  pathLengthOrigTrkToken_ = produces<edm::ValueMap<float>>("generalTrackPathLength");
-  tmtdOrigTrkToken_ = produces<edm::ValueMap<float>>("generalTracktmtd");
-  sigmatmtdOrigTrkToken_ = produces<edm::ValueMap<float>>("generalTracksigmatmtd");
-  tmtdPosOrigTrkToken_ = produces<edm::ValueMap<GlobalPoint>>("generalTrackmtdpos");
-  tofpiOrigTrkToken_ = produces<edm::ValueMap<float>>("generalTrackTofPi");
-  tofkOrigTrkToken_ = produces<edm::ValueMap<float>>("generalTrackTofK");
-  tofpOrigTrkToken_ = produces<edm::ValueMap<float>>("generalTrackTofP");
-  sigmatofpiOrigTrkToken_ = produces<edm::ValueMap<float>>("generalTrackSigmaTofPi");
-  sigmatofkOrigTrkToken_ = produces<edm::ValueMap<float>>("generalTrackSigmaTofK");
-  sigmatofpOrigTrkToken_ = produces<edm::ValueMap<float>>("generalTrackSigmaTofP");
+  mtdTimingInfoToken_ = produces<edm::ValueMap<reco::MTDTimingInfo>>("mtdTimingInfo");
   assocOrigTrkToken_ = produces<edm::ValueMap<int>>("generalTrackassoc");
 
   builderToken_ = esConsumes<TransientTrackBuilder, TransientTrackRecord>(edm::ESInputTag("", transientTrackBuilder_));
@@ -466,27 +428,7 @@ void TrackExtenderWithMTDT<TrackCollection>::produce(edm::Event& ev, const edm::
   auto extras = std::make_unique<reco::TrackExtraCollection>();
   auto outhits = std::make_unique<edm::OwnVector<TrackingRecHit>>();
 
-  std::vector<float> btlMatchChi2;
-  std::vector<float> etlMatchChi2;
-  std::vector<float> btlMatchTimeChi2;
-  std::vector<float> etlMatchTimeChi2;
-  std::vector<int> npixBarrel;
-  std::vector<int> npixEndcap;
-  std::vector<float> outermostHitPosition;
-  std::vector<float> pOrigTrkRaw;
-  std::vector<float> betaOrigTrkRaw;
-  std::vector<float> t0OrigTrkRaw;
-  std::vector<float> sigmat0OrigTrkRaw;
-  std::vector<float> pathLengthsOrigTrkRaw;
-  std::vector<float> tmtdOrigTrkRaw;
-  std::vector<float> sigmatmtdOrigTrkRaw;
-  std::vector<GlobalPoint> tmtdPosOrigTrkRaw;
-  std::vector<float> tofpiOrigTrkRaw;
-  std::vector<float> tofkOrigTrkRaw;
-  std::vector<float> tofpOrigTrkRaw;
-  std::vector<float> sigmatofpiOrigTrkRaw;
-  std::vector<float> sigmatofkOrigTrkRaw;
-  std::vector<float> sigmatofpOrigTrkRaw;
+  std::vector<reco::MTDTimingInfo> mtdTimingInfoRaw;
   std::vector<int> assocOrigTrkRaw;
 
   auto const tracksH = ev.getHandle(tracksToken_);
@@ -603,10 +545,7 @@ void TrackExtenderWithMTDT<TrackCollection>::produce(edm::Event& ev, const edm::
 
     const auto& trajwithmtd =
         mtdthits.empty() ? std::vector<Trajectory>(1, trajs) : theTransformer->transform(ttrack, thits);
-    float pMap = 0.f, betaMap = 0.f, t0Map = 0.f, sigmat0Map = -1.f, pathLengthMap = -1.f, tmtdMap = 0.f,
-          sigmatmtdMap = -1.f, tofpiMap = 0.f, tofkMap = 0.f, tofpMap = 0.f, sigmatofpiMap = -1.f, sigmatofkMap = -1.f,
-          sigmatofpMap = -1.f;
-    GlobalPoint tmtdPosMap{0., 0., 0.};
+    reco::MTDTimingInfo mtdInfo;
     int iMap = -1;
 
     for (const auto& trj : trajwithmtd) {
@@ -649,26 +588,38 @@ void TrackExtenderWithMTDT<TrackCollection>::produce(edm::Event& ev, const edm::
         extras->back().setTrajParams(trajParams, chi2s);
         //create the track
         output->push_back(result);
-        btlMatchChi2.push_back(mBTL.hit ? mBTL.estChi2 : -1.f);
-        etlMatchChi2.push_back(mETL.hit ? mETL.estChi2 : -1.f);
-        btlMatchTimeChi2.push_back(mBTL.hit ? mBTL.timeChi2 : -1.f);
-        etlMatchTimeChi2.push_back(mETL.hit ? mETL.timeChi2 : -1.f);
-        pathLengthMap = pathLength;
-        tmtdMap = tmtd;
-        sigmatmtdMap = sigmatmtd;
-        tmtdPosMap = tmtdPos;
         auto& backtrack = output->back();
         iMap = output->size() - 1;
-        pMap = backtrack.p();
-        betaMap = backtrack.beta();
-        t0Map = backtrack.t0();
-        sigmat0Map = std::copysign(std::sqrt(std::abs(backtrack.covt0t0())), backtrack.covt0t0());
-        tofpiMap = tofpi;
-        tofkMap = tofk;
-        tofpMap = tofp;
-        sigmatofpiMap = sigmatofpi;
-        sigmatofkMap = sigmatofk;
-        sigmatofpMap = sigmatofp;
+
+        mtdInfo.setBtlMatchChi2(mBTL.hit ? mBTL.estChi2 : -1.f);
+        mtdInfo.setEtlMatchChi2(mETL.hit ? mETL.estChi2 : -1.f);
+        mtdInfo.setBtlMatchTimeChi2(mBTL.hit ? mBTL.timeChi2 : -1.f);
+        mtdInfo.setEtlMatchTimeChi2(mETL.hit ? mETL.timeChi2 : -1.f);
+        mtdInfo.setPathLength(pathLength);
+        mtdInfo.setTmtd(tmtd);
+        mtdInfo.setSigmaTmtd(sigmatmtd);
+        mtdInfo.setMtdPos(tmtdPos);
+        mtdInfo.setP(backtrack.p());
+        mtdInfo.setBeta(backtrack.beta());
+        mtdInfo.setT0(backtrack.t0());
+        mtdInfo.setSigmaT0(std::copysign(std::sqrt(std::abs(backtrack.covt0t0())), backtrack.covt0t0()));
+        mtdInfo.setTofPi(tofpi);
+        mtdInfo.setTofK(tofk);
+        mtdInfo.setTofP(tofp);
+        mtdInfo.setSigmaTofPi(sigmatofpi);
+        mtdInfo.setSigmaTofK(sigmatofk);
+        mtdInfo.setSigmaTofP(sigmatofp);
+        mtdInfo.setNpixBarrel(backtrack.hitPattern().numberOfValidPixelBarrelHits());
+        mtdInfo.setNpixEndcap(backtrack.hitPattern().numberOfValidPixelEndcapHits());
+        if (mBTL.hit || mETL.hit) {
+          mtdInfo.setOutermostHitPosition(
+              mBTL.hit ? (float)(*track).outerRadius()
+                       : (float)(*track).outerZ());  // save R of the outermost hit for BTL, z for ETL.
+        } else {
+          mtdInfo.setOutermostHitPosition(std::abs(track->eta()) < trackMaxBtlEta_ ? (float)(*track).outerRadius()
+                                                                                   : (float)(*track).outerZ());
+        }
+
         reco::TrackExtraRef extraRef(extrasRefProd, extras->size() - 1);
         backtrack.setExtra((updateExtra_ ? extraRef : track->extra()));
         for (unsigned ihit = hitsstart; ihit < hitsend; ++ihit) {
@@ -684,56 +635,25 @@ void TrackExtenderWithMTDT<TrackCollection>::produce(edm::Event& ev, const edm::
           backtrack.hitPattern().printHitPattern(reco::HitPattern::MISSING_INNER_HITS, i, std::cout);
         }
 #endif
-        npixBarrel.push_back(backtrack.hitPattern().numberOfValidPixelBarrelHits());
-        npixEndcap.push_back(backtrack.hitPattern().numberOfValidPixelEndcapHits());
-
-        if (mBTL.hit || mETL.hit) {
-          outermostHitPosition.push_back(
-              mBTL.hit ? (float)(*track).outerRadius()
-                       : (float)(*track).outerZ());  // save R of the outermost hit for BTL, z for ETL.
-        } else {
-          outermostHitPosition.push_back(std::abs(track->eta()) < trackMaxBtlEta_ ? (float)(*track).outerRadius()
-                                                                                  : (float)(*track).outerZ());
-        }
-
-        LogTrace("TrackExtenderWithMTD") << "TrackExtenderWithMTD: tmtd " << tmtdMap << " +/- " << sigmatmtdMap
-                                         << " t0 " << t0Map << " +/- " << sigmat0Map << " tof pi/K/p " << tofpiMap
-                                         << "+/-" << std::format("{:0.2g}", sigmatofpiMap) << " ("
-                                         << std::format("{:0.2g}", sigmatofpiMap / tofpiMap * 100) << "%) " << tofkMap
-                                         << "+/-" << std::format("{:0.2g}", sigmatofkMap) << " ("
-                                         << std::format("{:0.2g}", sigmatofkMap / tofkMap * 100) << "%) " << tofpMap
-                                         << "+/-" << std::format("{:0.2g}", sigmatofpMap) << " ("
-                                         << std::format("{:0.2g}", sigmatofpMap / tofpMap * 100) << "%) ";
+        LogTrace("TrackExtenderWithMTD") << "TrackExtenderWithMTD: tmtd " << mtdInfo.tmtd() << " +/- "
+                                         << mtdInfo.sigmaTmtd() << " t0 " << mtdInfo.t0() << " +/- "
+                                         << mtdInfo.sigmaT0() << " tof pi/K/p " << mtdInfo.tofPi() << "+/-"
+                                         << std::format("{:0.2g}", mtdInfo.sigmaTofPi()) << " ("
+                                         << std::format("{:0.2g}", mtdInfo.sigmaTofPi() / mtdInfo.tofPi() * 100)
+                                         << "%) " << mtdInfo.tofK() << "+/-"
+                                         << std::format("{:0.2g}", mtdInfo.sigmaTofK()) << " ("
+                                         << std::format("{:0.2g}", mtdInfo.sigmaTofK() / mtdInfo.tofK() * 100)
+                                         << "%) " << mtdInfo.tofP() << "+/-"
+                                         << std::format("{:0.2g}", mtdInfo.sigmaTofP()) << " ("
+                                         << std::format("{:0.2g}", mtdInfo.sigmaTofP() / mtdInfo.tofP() * 100)
+                                         << "%) ";
       } else {
         LogTrace("TrackExtenderWithMTD") << "Error in the MTD track refitting. This should not happen";
       }
     }
 
-    pOrigTrkRaw.push_back(pMap);
-    betaOrigTrkRaw.push_back(betaMap);
-    t0OrigTrkRaw.push_back(t0Map);
-    sigmat0OrigTrkRaw.push_back(sigmat0Map);
-    pathLengthsOrigTrkRaw.push_back(pathLengthMap);
-    tmtdOrigTrkRaw.push_back(tmtdMap);
-    sigmatmtdOrigTrkRaw.push_back(sigmatmtdMap);
-    tmtdPosOrigTrkRaw.push_back(tmtdPosMap);
-    tofpiOrigTrkRaw.push_back(tofpiMap);
-    tofkOrigTrkRaw.push_back(tofkMap);
-    tofpOrigTrkRaw.push_back(tofpMap);
-    sigmatofpiOrigTrkRaw.push_back(sigmatofpiMap);
-    sigmatofkOrigTrkRaw.push_back(sigmatofkMap);
-    sigmatofpOrigTrkRaw.push_back(sigmatofpMap);
+    mtdTimingInfoRaw.push_back(mtdInfo);
     assocOrigTrkRaw.push_back(iMap);
-
-    if (iMap == -1) {
-      btlMatchChi2.push_back(-1.f);
-      etlMatchChi2.push_back(-1.f);
-      btlMatchTimeChi2.push_back(-1.f);
-      etlMatchTimeChi2.push_back(-1.f);
-      npixBarrel.push_back(-1.f);
-      npixEndcap.push_back(-1.f);
-      outermostHitPosition.push_back(0.);
-    }
 
     ++itrack;
   }
@@ -742,27 +662,7 @@ void TrackExtenderWithMTDT<TrackCollection>::produce(edm::Event& ev, const edm::
   ev.put(std::move(extras));
   ev.put(std::move(outhits));
 
-  fillValueMap(ev, tracksH, btlMatchChi2, btlMatchChi2Token_);
-  fillValueMap(ev, tracksH, etlMatchChi2, etlMatchChi2Token_);
-  fillValueMap(ev, tracksH, btlMatchTimeChi2, btlMatchTimeChi2Token_);
-  fillValueMap(ev, tracksH, etlMatchTimeChi2, etlMatchTimeChi2Token_);
-  fillValueMap(ev, tracksH, npixBarrel, npixBarrelToken_);
-  fillValueMap(ev, tracksH, npixEndcap, npixEndcapToken_);
-  fillValueMap(ev, tracksH, outermostHitPosition, outermostHitPositionToken_);
-  fillValueMap(ev, tracksH, pOrigTrkRaw, pOrigTrkToken_);
-  fillValueMap(ev, tracksH, betaOrigTrkRaw, betaOrigTrkToken_);
-  fillValueMap(ev, tracksH, t0OrigTrkRaw, t0OrigTrkToken_);
-  fillValueMap(ev, tracksH, sigmat0OrigTrkRaw, sigmat0OrigTrkToken_);
-  fillValueMap(ev, tracksH, pathLengthsOrigTrkRaw, pathLengthOrigTrkToken_);
-  fillValueMap(ev, tracksH, tmtdOrigTrkRaw, tmtdOrigTrkToken_);
-  fillValueMap(ev, tracksH, sigmatmtdOrigTrkRaw, sigmatmtdOrigTrkToken_);
-  fillValueMap(ev, tracksH, tmtdPosOrigTrkRaw, tmtdPosOrigTrkToken_);
-  fillValueMap(ev, tracksH, tofpiOrigTrkRaw, tofpiOrigTrkToken_);
-  fillValueMap(ev, tracksH, tofkOrigTrkRaw, tofkOrigTrkToken_);
-  fillValueMap(ev, tracksH, tofpOrigTrkRaw, tofpOrigTrkToken_);
-  fillValueMap(ev, tracksH, sigmatofpiOrigTrkRaw, sigmatofpiOrigTrkToken_);
-  fillValueMap(ev, tracksH, sigmatofkOrigTrkRaw, sigmatofkOrigTrkToken_);
-  fillValueMap(ev, tracksH, sigmatofpOrigTrkRaw, sigmatofpOrigTrkToken_);
+  fillValueMap(ev, tracksH, mtdTimingInfoRaw, mtdTimingInfoToken_);
   fillValueMap(ev, tracksH, assocOrigTrkRaw, assocOrigTrkToken_);
 }
 

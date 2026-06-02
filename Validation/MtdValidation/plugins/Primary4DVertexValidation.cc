@@ -9,6 +9,7 @@
 #include "FWCore/Utilities/interface/isFinite.h"
 
 #include "DataFormats/Common/interface/ValidHandle.h"
+#include "DataFormats/MTDReco/interface/MTDTimingInfo.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/EventSetup.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
@@ -313,20 +314,13 @@ private:
   edm::EDGetTokenT<edm::View<reco::Vertex>> Rec4DVerToken_;
 
   edm::EDGetTokenT<edm::ValueMap<int>> trackAssocToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> pathLengthToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> momentumToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> timeToken_;
+  edm::EDGetTokenT<edm::ValueMap<reco::MTDTimingInfo>> mtdTimingInfoToken_;
 
   edm::EDGetTokenT<edm::ValueMap<float>> t0PidToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> sigmat0PidToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> t0SafePidToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> sigmat0SafePidToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> trackMVAQualToken_;
-
-  edm::EDGetTokenT<edm::ValueMap<float>> tmtdToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> tofPiToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> tofKToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> tofPToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> probPiToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> probKToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> probPToken_;
@@ -610,18 +604,13 @@ Primary4DVertexValidation::Primary4DVertexValidation(const edm::ParameterSet& iC
   RecBeamSpotToken_ = consumes<reco::BeamSpot>(iConfig.getParameter<edm::InputTag>("offlineBS"));
   Rec4DVerToken_ = consumes<edm::View<reco::Vertex>>(iConfig.getParameter<edm::InputTag>("offline4DPV"));
   trackAssocToken_ = consumes<edm::ValueMap<int>>(iConfig.getParameter<edm::InputTag>("trackAssocSrc"));
-  pathLengthToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("pathLengthSrc"));
-  momentumToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("momentumSrc"));
-  timeToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("timeSrc"));
+  mtdTimingInfoToken_ =
+      consumes<edm::ValueMap<reco::MTDTimingInfo>>(iConfig.getParameter<edm::InputTag>("mtdTimingInfoSrc"));
   t0PidToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("t0PID"));
   sigmat0PidToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("sigmat0PID"));
   t0SafePidToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("t0SafePID"));
   sigmat0SafePidToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("sigmat0SafePID"));
   trackMVAQualToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("trackMVAQual"));
-  tmtdToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("tmtd"));
-  tofPiToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("tofPi"));
-  tofKToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("tofK"));
-  tofPToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("tofP"));
   probPiToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("probPi"));
   probKToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("probK"));
   probPToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("probP"));
@@ -2322,18 +2311,12 @@ void Primary4DVertexValidation::analyze(const edm::Event& iEvent, const edm::Eve
   recopv = getRecoPVs(recVtxs);
 
   const auto& trackAssoc = iEvent.get(trackAssocToken_);
-  const auto& pathLength = iEvent.get(pathLengthToken_);
-  const auto& momentum = iEvent.get(momentumToken_);
-  const auto& time = iEvent.get(timeToken_);
+  const auto& mtdTimingInfo = iEvent.get(mtdTimingInfoToken_);
   const auto& t0Pid = iEvent.get(t0PidToken_);
   const auto& sigmat0 = iEvent.get(sigmat0PidToken_);
   const auto& t0Safe = iEvent.get(t0SafePidToken_);
   const auto& sigmat0Safe = iEvent.get(sigmat0SafePidToken_);
   const auto& mtdQualMVA = iEvent.get(trackMVAQualToken_);
-  const auto& tMtd = iEvent.get(tmtdToken_);
-  const auto& tofPi = iEvent.get(tofPiToken_);
-  const auto& tofK = iEvent.get(tofKToken_);
-  const auto& tofP = iEvent.get(tofPToken_);
   const auto& probPi = iEvent.get(probPiToken_);
   const auto& probK = iEvent.get(probKToken_);
   const auto& probP = iEvent.get(probPToken_);
@@ -2523,7 +2506,8 @@ void Primary4DVertexValidation::analyze(const edm::Event& iEvent, const edm::Eve
             categoryVector.push_back(matchCategory);
             double mass = (*tp_info)->mass();
             double tsim = (*tp_info)->parentVertex()->position().t() * simUnit_;
-            double tEst = timeFromTrueMass(mass, pathLength[*iTrack], momentum[*iTrack], time[*iTrack]);
+            double tEst = timeFromTrueMass(
+                mass, mtdTimingInfo[*iTrack].pathLength(), mtdTimingInfo[*iTrack].p(), mtdTimingInfo[*iTrack].tmtd());
 
             double xsim = (*tp_info)->parentVertex()->position().x();
             double ysim = (*tp_info)->parentVertex()->position().y();
@@ -2566,15 +2550,16 @@ void Primary4DVertexValidation::analyze(const edm::Event& iEvent, const edm::Eve
               bool noPID = false, isPi = false, isK = false, isP = false;
               isParticle(*iTrack, sigmat0, sigmat0Safe, probPi, probK, probP, noPIDtype, noPID, isPi, isK, isP);
 
-              if ((isPi && std::abs(tMtd[*iTrack] - tofPi[*iTrack] - t0Pid[*iTrack]) > tol_) ||
-                  (isK && std::abs(tMtd[*iTrack] - tofK[*iTrack] - t0Pid[*iTrack]) > tol_) ||
-                  (isP && std::abs(tMtd[*iTrack] - tofP[*iTrack] - t0Pid[*iTrack]) > tol_)) {
+              const auto& tinfo4d = mtdTimingInfo[*iTrack];
+              if ((isPi && std::abs(tinfo4d.tmtd() - tinfo4d.tofPi() - t0Pid[*iTrack]) > tol_) ||
+                  (isK && std::abs(tinfo4d.tmtd() - tinfo4d.tofK() - t0Pid[*iTrack]) > tol_) ||
+                  (isP && std::abs(tinfo4d.tmtd() - tinfo4d.tofP() - t0Pid[*iTrack]) > tol_)) {
                 edm::LogWarning("Primary4DVertexValidation")
                     << "No match between mass hyp. and time: " << std::abs((*tp_info)->pdgId()) << " mass hyp pi/k/p "
                     << isPi << " " << isK << " " << isP << " t0/t0safe " << t0Pid[*iTrack] << " " << t0Safe[*iTrack]
-                    << " tMtd - tof pi/K/p " << tMtd[*iTrack] - tofPi[*iTrack] << " " << tMtd[*iTrack] - tofK[*iTrack]
-                    << " " << tMtd[*iTrack] - tofP[*iTrack] << " Prob pi/K/p " << probPi[*iTrack] << " "
-                    << probK[*iTrack] << " " << probP[*iTrack];
+                    << " tMtd - tof pi/K/p " << tinfo4d.tmtd() - tinfo4d.tofPi() << " "
+                    << tinfo4d.tmtd() - tinfo4d.tofK() << " " << tinfo4d.tmtd() - tinfo4d.tofP()
+                    << " Prob pi/K/p " << probPi[*iTrack] << " " << probK[*iTrack] << " " << probP[*iTrack];
               }
 
               if (std::abs((*iTrack)->eta()) < trackMaxBtlEta_) {
@@ -3214,19 +3199,13 @@ void Primary4DVertexValidation::fillDescriptions(edm::ConfigurationDescriptions&
   desc.add<edm::InputTag>("offline4DPV", edm::InputTag("offlinePrimaryVertices4D"));
   desc.add<edm::InputTag>("trackAssocSrc", edm::InputTag("trackExtenderWithMTD:generalTrackassoc"))
       ->setComment("Association between General and MTD Extended tracks");
-  desc.add<edm::InputTag>("pathLengthSrc", edm::InputTag("trackExtenderWithMTD:generalTrackPathLength"));
-  desc.add<edm::InputTag>("momentumSrc", edm::InputTag("trackExtenderWithMTD:generalTrackp"));
-  desc.add<edm::InputTag>("tmtd", edm::InputTag("trackExtenderWithMTD:generalTracktmtd"));
-  desc.add<edm::InputTag>("timeSrc", edm::InputTag("trackExtenderWithMTD:generalTracktmtd"));
-  desc.add<edm::InputTag>("sigmaSrc", edm::InputTag("trackExtenderWithMTD:generalTracksigmatmtd"));
+  desc.add<edm::InputTag>("mtdTimingInfoSrc", edm::InputTag("trackExtenderWithMTD:mtdTimingInfo"))
+      ->setComment("Input ValueMap of MTDTimingInfo from TrackExtenderWithMTD");
   desc.add<edm::InputTag>("t0PID", edm::InputTag("tofPID:t0"));
   desc.add<edm::InputTag>("sigmat0PID", edm::InputTag("tofPID:sigmat0"));
   desc.add<edm::InputTag>("t0SafePID", edm::InputTag("tofPID:t0safe"));
   desc.add<edm::InputTag>("sigmat0SafePID", edm::InputTag("tofPID:sigmat0safe"));
   desc.add<edm::InputTag>("trackMVAQual", edm::InputTag("mtdTrackQualityMVA:mtdQualMVA"));
-  desc.add<edm::InputTag>("tofPi", edm::InputTag("trackExtenderWithMTD:generalTrackTofPi"));
-  desc.add<edm::InputTag>("tofK", edm::InputTag("trackExtenderWithMTD:generalTrackTofK"));
-  desc.add<edm::InputTag>("tofP", edm::InputTag("trackExtenderWithMTD:generalTrackTofP"));
   desc.add<edm::InputTag>("probPi", edm::InputTag("tofPID:probPi"));
   desc.add<edm::InputTag>("probK", edm::InputTag("tofPID:probK"));
   desc.add<edm::InputTag>("probP", edm::InputTag("tofPID:probP"));

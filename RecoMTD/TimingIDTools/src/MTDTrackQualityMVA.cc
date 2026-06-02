@@ -15,16 +15,7 @@ MTDTrackQualityMVA::MTDTrackQualityMVA(std::string weights_file) {
 
 float MTDTrackQualityMVA::operator()(const reco::TrackRef& trk,
                                      const reco::BeamSpot& beamspot,
-                                     const edm::ValueMap<int>& npixBarrels,
-                                     const edm::ValueMap<int>& npixEndcaps,
-                                     const edm::ValueMap<float>& btl_chi2s,
-                                     const edm::ValueMap<float>& btl_time_chi2s,
-                                     const edm::ValueMap<float>& etl_chi2s,
-                                     const edm::ValueMap<float>& etl_time_chi2s,
-                                     const edm::ValueMap<float>& tmtds,
-                                     const edm::ValueMap<float>& sigmatmtds,
-                                     const edm::ValueMap<float>& trk_lengths,
-                                     const edm::ValueMap<float>& trk_lhitpos) const {
+                                     const reco::MTDTimingInfo& timingInfo) const {
   std::map<std::string, float> vars;
 
   static constexpr double etacutREC_ = 3.;   // |eta| < 3
@@ -41,7 +32,7 @@ float MTDTrackQualityMVA::operator()(const reco::TrackRef& trk,
     return -1;
 
   //---training performed only for tracks with MTD hits
-  if (tmtds[trk] > 0) {
+  if (timingInfo.tmtd() > 0) {
     vars.emplace(vars_[int(VarID::Track_pt)], trk->pt());
     vars.emplace(vars_[int(VarID::Track_eta)], trk->eta());
     vars.emplace(vars_[int(VarID::Track_phi)], trk->phi());
@@ -49,16 +40,16 @@ float MTDTrackQualityMVA::operator()(const reco::TrackRef& trk,
     vars.emplace(vars_[int(VarID::Track_dxy)], trk->dxy(beamspot.position()));
     vars.emplace(vars_[int(VarID::Track_chi2)], trk->chi2());
     vars.emplace(vars_[int(VarID::Track_ndof)], trk->ndof());
-    vars.emplace(vars_[int(VarID::Track_npixBarrelValidHits)], npixBarrels[trk]);
-    vars.emplace(vars_[int(VarID::Track_npixEndcapValidHits)], npixEndcaps[trk]);
-    vars.emplace(vars_[int(VarID::Track_BTLchi2)], btl_chi2s.contains(trk.id()) ? btl_chi2s[trk] : -1);
-    vars.emplace(vars_[int(VarID::Track_BTLtime_chi2)], btl_time_chi2s.contains(trk.id()) ? btl_time_chi2s[trk] : -1);
-    vars.emplace(vars_[int(VarID::Track_ETLchi2)], etl_chi2s.contains(trk.id()) ? etl_chi2s[trk] : -1);
-    vars.emplace(vars_[int(VarID::Track_ETLtime_chi2)], etl_time_chi2s.contains(trk.id()) ? etl_time_chi2s[trk] : -1);
-    vars.emplace(vars_[int(VarID::Track_Tmtd)], tmtds[trk]);
-    vars.emplace(vars_[int(VarID::Track_sigmaTmtd)], sigmatmtds[trk]);
-    vars.emplace(vars_[int(VarID::Track_length)], trk_lengths[trk]);
-    vars.emplace(vars_[int(VarID::Track_lHitPos)], trk_lhitpos[trk]);
+    vars.emplace(vars_[int(VarID::Track_npixBarrelValidHits)], timingInfo.npixBarrel());
+    vars.emplace(vars_[int(VarID::Track_npixEndcapValidHits)], timingInfo.npixEndcap());
+    vars.emplace(vars_[int(VarID::Track_BTLchi2)], timingInfo.btlMatchChi2());
+    vars.emplace(vars_[int(VarID::Track_BTLtime_chi2)], timingInfo.btlMatchTimeChi2());
+    vars.emplace(vars_[int(VarID::Track_ETLchi2)], timingInfo.etlMatchChi2());
+    vars.emplace(vars_[int(VarID::Track_ETLtime_chi2)], timingInfo.etlMatchTimeChi2());
+    vars.emplace(vars_[int(VarID::Track_Tmtd)], timingInfo.tmtd());
+    vars.emplace(vars_[int(VarID::Track_sigmaTmtd)], timingInfo.sigmaTmtd());
+    vars.emplace(vars_[int(VarID::Track_length)], timingInfo.pathLength());
+    vars.emplace(vars_[int(VarID::Track_lHitPos)], timingInfo.outermostHitPosition());
 
     return 1. / (1 + sqrt(2 / (1 + mva_->evaluate(vars, false)) - 1));  //return values between 0-1 (probability)
   } else

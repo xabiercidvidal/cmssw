@@ -8,6 +8,7 @@
 <use name="TrackingTools/KalmanUpdators"/>
 <use name="TrackingTools/TransientTrack"/>
 <use name="DataFormats/GeometryCommonDetAlgo"/>
+<use name="DataFormats/MTDReco"/>
 <use name="TrackPropagation/SteppingHelixPropagator"/>
 <use name="TrackingTools/Records"/>
 <use name="TrackingTools/TrajectoryState"/>

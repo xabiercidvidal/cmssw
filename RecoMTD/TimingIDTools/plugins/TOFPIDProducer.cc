@@ -6,6 +6,7 @@
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
 
+#include "DataFormats/MTDReco/interface/MTDTimingInfo.h"
 #include "DataFormats/VertexReco/interface/VertexFwd.h"
 #include "DataFormats/TrackReco/interface/TrackFwd.h"
 #include "DataFormats/Common/interface/ValueMap.h"
@@ -42,15 +43,7 @@ private:
   static constexpr char probPName[] = "probP";
 
   edm::EDGetTokenT<reco::TrackCollection> tracksToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> t0Token_;
-  edm::EDGetTokenT<edm::ValueMap<float>> tmtdToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> sigmat0Token_;
-  edm::EDGetTokenT<edm::ValueMap<float>> sigmatmtdToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> tofkToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> tofpToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> sigmatofpiToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> sigmatofkToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> sigmatofpToken_;
+  edm::EDGetTokenT<edm::ValueMap<reco::MTDTimingInfo>> mtdTimingInfoToken_;
   edm::EDGetTokenT<reco::VertexCollection> vtxsToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> trackMTDTimeQualityToken_;
   const double vtxMaxSigmaT_;
@@ -68,15 +61,8 @@ private:
 
 TOFPIDProducer::TOFPIDProducer(const ParameterSet& iConfig)
     : tracksToken_(consumes<reco::TrackCollection>(iConfig.getParameter<edm::InputTag>("tracksSrc"))),
-      t0Token_(consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("t0Src"))),
-      tmtdToken_(consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("tmtdSrc"))),
-      sigmat0Token_(consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("sigmat0Src"))),
-      sigmatmtdToken_(consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("sigmatmtdSrc"))),
-      tofkToken_(consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("tofkSrc"))),
-      tofpToken_(consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("tofpSrc"))),
-      sigmatofpiToken_(consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("sigmatofpiSrc"))),
-      sigmatofkToken_(consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("sigmatofkSrc"))),
-      sigmatofpToken_(consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("sigmatofpSrc"))),
+      mtdTimingInfoToken_(
+          consumes<edm::ValueMap<reco::MTDTimingInfo>>(iConfig.getParameter<edm::InputTag>("mtdTimingInfoSrc"))),
       vtxsToken_(consumes<reco::VertexCollection>(iConfig.getParameter<edm::InputTag>("vtxsSrc"))),
       trackMTDTimeQualityToken_(
           consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("trackMTDTimeQualityVMapTag"))),
@@ -104,24 +90,8 @@ TOFPIDProducer::TOFPIDProducer(const ParameterSet& iConfig)
 void TOFPIDProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
   desc.add<edm::InputTag>("tracksSrc", edm::InputTag("generalTracks"))->setComment("Input tracks collection");
-  desc.add<edm::InputTag>("t0Src", edm::InputTag("trackExtenderWithMTD:generalTrackt0"))
-      ->setComment("Input ValueMap for track time at beamline");
-  desc.add<edm::InputTag>("tmtdSrc", edm::InputTag("trackExtenderWithMTD:generalTracktmtd"))
-      ->setComment("Input ValueMap for track time at MTD");
-  desc.add<edm::InputTag>("sigmat0Src", edm::InputTag("trackExtenderWithMTD:generalTracksigmat0"))
-      ->setComment("Input ValueMap for track time uncertainty at beamline");
-  desc.add<edm::InputTag>("sigmatmtdSrc", edm::InputTag("trackExtenderWithMTD:generalTracksigmatmtd"))
-      ->setComment("Input ValueMap for track time uncertainty at MTD");
-  desc.add<edm::InputTag>("tofkSrc", edm::InputTag("trackExtenderWithMTD:generalTrackTofK"))
-      ->setComment("Input ValueMap for track tof as kaon");
-  desc.add<edm::InputTag>("tofpSrc", edm::InputTag("trackExtenderWithMTD:generalTrackTofP"))
-      ->setComment("Input ValueMap for track tof as proton");
-  desc.add<edm::InputTag>("sigmatofpiSrc", edm::InputTag("trackExtenderWithMTD:generalTrackSigmaTofPi"))
-      ->setComment("Input ValueMap for track sigma(tof) as pion");
-  desc.add<edm::InputTag>("sigmatofkSrc", edm::InputTag("trackExtenderWithMTD:generalTrackSigmaTofK"))
-      ->setComment("Input ValueMap for track sigma(tof) as kaon");
-  desc.add<edm::InputTag>("sigmatofpSrc", edm::InputTag("trackExtenderWithMTD:generalTrackSigmaTofP"))
-      ->setComment("Input ValueMap for track sigma(tof) as proton");
+  desc.add<edm::InputTag>("mtdTimingInfoSrc", edm::InputTag("trackExtenderWithMTD:mtdTimingInfo"))
+      ->setComment("Input ValueMap of MTDTimingInfo from TrackExtenderWithMTD");
   desc.add<edm::InputTag>("vtxsSrc", edm::InputTag("unsortedOfflinePrimaryVertices4DwithPID"))
       ->setComment("Input primary vertex collection");
   desc.add<edm::InputTag>("trackMTDTimeQualityVMapTag", edm::InputTag("mtdTrackQualityMVA:mtdQualMVA"))
@@ -163,23 +133,7 @@ void TOFPIDProducer::produce(edm::Event& ev, const edm::EventSetup& es) {
   ev.getByToken(tracksToken_, tracksH);
   const auto& tracks = *tracksH;
 
-  const auto& t0In = ev.get(t0Token_);
-
-  const auto& tmtdIn = ev.get(tmtdToken_);
-
-  const auto& sigmat0In = ev.get(sigmat0Token_);
-
-  const auto& sigmatmtdIn = ev.get(sigmatmtdToken_);
-
-  const auto& tofkIn = ev.get(tofkToken_);
-
-  const auto& tofpIn = ev.get(tofpToken_);
-
-  const auto& sigmatofpiIn = ev.get(sigmatofpiToken_);
-
-  const auto& sigmatofkIn = ev.get(sigmatofkToken_);
-
-  const auto& sigmatofpIn = ev.get(sigmatofpToken_);
+  const auto& mtdTimingInfoIn = ev.get(mtdTimingInfoToken_);
 
   const auto& vtxs = ev.get(vtxsToken_);
 
@@ -198,14 +152,15 @@ void TOFPIDProducer::produce(edm::Event& ev, const edm::EventSetup& es) {
   for (unsigned int itrack = 0; itrack < tracks.size(); ++itrack) {
     const reco::Track& track = tracks[itrack];
     const reco::TrackRef trackref(tracksH, itrack);
-    float t0 = t0In[trackref];
+    const auto& tinfo = mtdTimingInfoIn[trackref];
+    float t0 = tinfo.t0();
     float t0safe = t0;
-    float sigmat0safe = sigmat0In[trackref];
-    float sigmatmtd = (sigmatmtdIn[trackref] > 0. && fixedT0Error_ > 0.) ? fixedT0Error_ : sigmatmtdIn[trackref];
+    float sigmat0safe = tinfo.sigmaT0();
+    float sigmatmtd = (tinfo.sigmaTmtd() > 0. && fixedT0Error_ > 0.) ? fixedT0Error_ : tinfo.sigmaTmtd();
     float sigmat0 = sigmatmtd;
-    float sigmatofpi = sigmatofpiIn[trackref];
-    float sigmatofk = sigmatofkIn[trackref];
-    float sigmatofp = sigmatofpIn[trackref];
+    float sigmatofpi = tinfo.sigmaTofPi();
+    float sigmatofk = tinfo.sigmaTofK();
+    float sigmatofp = tinfo.sigmaTofP();
 
     float prob_pi = -1.;
     float prob_k = -1.;
@@ -280,9 +235,9 @@ void TOFPIDProducer::produce(edm::Event& ev, const edm::EventSetup& es) {
           sigmat0 = sigmat0safe;
         }
 
-        double tmtd = tmtdIn[trackref];
-        double t0_k = tmtd - tofkIn[trackref];
-        double t0_p = tmtd - tofpIn[trackref];
+        double tmtd = tinfo.tmtd();
+        double t0_k = tmtd - tinfo.tofK();
+        double t0_p = tmtd - tinfo.tofP();
 
         double chisqmin = chisqnom;
 

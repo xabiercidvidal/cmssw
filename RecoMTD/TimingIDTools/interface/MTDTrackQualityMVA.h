@@ -1,6 +1,7 @@
 #ifndef RECOMTD_TIMINGIDTOOLS_MTDTRACKQUALITYMVA
 #define RECOMTD_TIMINGIDTOOLS_MTDTRACKQUALITYMVA
 
+#include "DataFormats/MTDReco/interface/MTDTimingInfo.h"
 #include "DataFormats/VertexReco/interface/Vertex.h"
 #include "DataFormats/VertexReco/interface/VertexFwd.h"
 #include "DataFormats/TrackReco/interface/Track.h"
@@ -42,16 +43,7 @@ public:
   // 4D
   float operator()(const reco::TrackRef& trk,
                    const reco::BeamSpot& beamspot,
-                   const edm::ValueMap<int>& npixBarrels,
-                   const edm::ValueMap<int>& npixEndcaps,
-                   const edm::ValueMap<float>& btl_chi2s,
-                   const edm::ValueMap<float>& btl_time_chi2s,
-                   const edm::ValueMap<float>& etl_chi2s,
-                   const edm::ValueMap<float>& etl_time_chi2s,
-                   const edm::ValueMap<float>& tmtds,
-                   const edm::ValueMap<float>& sigmatmtds,
-                   const edm::ValueMap<float>& trk_lengths,
-                   const edm::ValueMap<float>& trk_lhitpos) const;
+                   const reco::MTDTimingInfo& timingInfo) const;
 
 private:
   std::vector<std::string> vars_, spec_vars_;

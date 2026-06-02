@@ -1,5 +1,7 @@
 #include <string>
 
+#include "DataFormats/MTDReco/interface/MTDTimingInfo.h"
+
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
@@ -161,25 +163,12 @@ private:
   edm::EDGetTokenT<FTLClusterCollection> etlRecCluToken_;
 
   edm::EDGetTokenT<edm::ValueMap<int>> trackAssocToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> pathLengthToken_;
-
-  edm::EDGetTokenT<edm::ValueMap<float>> btlMatchTimeChi2Token_;
-  edm::EDGetTokenT<edm::ValueMap<float>> etlMatchTimeChi2Token_;
-  edm::EDGetTokenT<edm::ValueMap<float>> btlMatchChi2Token_;
-
-  edm::EDGetTokenT<edm::ValueMap<float>> tmtdToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> SigmatmtdToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> t0SrcToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> Sigmat0SrcToken_;
+  edm::EDGetTokenT<edm::ValueMap<reco::MTDTimingInfo>> mtdTimingInfoToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> t0PidToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> Sigmat0PidToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> t0SafePidToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> Sigmat0SafePidToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> SigmaTofPiToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> SigmaTofKToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> SigmaTofPToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> trackMVAQualToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> outermostHitPositionToken_;
 
   edm::ESGetToken<MTDGeometry, MTDDigiGeometryRecord> mtdgeoToken_;
   edm::ESGetToken<MTDTopology, MTDTopologyRcd> mtdtopoToken_;
@@ -537,24 +526,13 @@ MtdTracksValidation::MtdTracksValidation(const edm::ParameterSet& iConfig)
   btlRecCluToken_ = consumes<FTLClusterCollection>(iConfig.getParameter<edm::InputTag>("recCluTagBTL"));
   etlRecCluToken_ = consumes<FTLClusterCollection>(iConfig.getParameter<edm::InputTag>("recCluTagETL"));
   trackAssocToken_ = consumes<edm::ValueMap<int>>(iConfig.getParameter<edm::InputTag>("trackAssocSrc"));
-  pathLengthToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("pathLengthSrc"));
-  btlMatchTimeChi2Token_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("btlMatchTimeChi2"));
-  etlMatchTimeChi2Token_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("etlMatchTimeChi2"));
-  btlMatchChi2Token_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("btlMatchChi2"));
-  tmtdToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("tmtd"));
-  SigmatmtdToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("sigmatmtd"));
-  t0SrcToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("t0Src"));
-  Sigmat0SrcToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("sigmat0Src"));
+  mtdTimingInfoToken_ =
+      consumes<edm::ValueMap<reco::MTDTimingInfo>>(iConfig.getParameter<edm::InputTag>("mtdTimingInfoSrc"));
   t0PidToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("t0PID"));
   Sigmat0PidToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("sigmat0PID"));
   t0SafePidToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("t0SafePID"));
   Sigmat0SafePidToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("sigmat0SafePID"));
-  SigmaTofPiToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("sigmaTofPi"));
-  SigmaTofKToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("sigmaTofK"));
-  SigmaTofPToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("sigmaTofP"));
   trackMVAQualToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("trackMVAQual"));
-  outermostHitPositionToken_ =
-      consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("outermostHitPositionSrc"));
   mtdgeoToken_ = esConsumes<MTDGeometry, MTDDigiGeometryRecord>();
   mtdtopoToken_ = esConsumes<MTDTopology, MTDTopologyRcd>();
   mtdlayerToken_ = esConsumes<MTDDetLayerGeometry, MTDRecoGeometryRecord>();
@@ -586,43 +564,21 @@ void MtdTracksValidation::analyze(const edm::Event& iEvent, const edm::EventSetu
   const auto& Sim2tpAssociationMap = iEvent.get(Sim2tpAssociationMapToken_);
   const auto& r2sAssociationMap = iEvent.get(r2sAssociationMapToken_);
 
-  const auto& tMtdHandle = iEvent.getHandle(tmtdToken_);
-  const auto& SigmatMtdHandle = iEvent.getHandle(SigmatmtdToken_);
-  const auto& t0SrcHandle = iEvent.getHandle(t0SrcToken_);
-  const auto& Sigmat0SrcHandle = iEvent.getHandle(Sigmat0SrcToken_);
+  const auto& mtdTimingInfoHandle = iEvent.getHandle(mtdTimingInfoToken_);
   const auto& t0PidHandle = iEvent.getHandle(t0PidToken_);
   const auto& Sigmat0PidHandle = iEvent.getHandle(Sigmat0PidToken_);
   const auto& t0SafeHandle = iEvent.getHandle(t0SafePidToken_);
   const auto& Sigmat0SafeHandle = iEvent.getHandle(Sigmat0SafePidToken_);
-  const auto& SigmaTofPiHandle = iEvent.getHandle(SigmaTofPiToken_);
-  const auto& SigmaTofKHandle = iEvent.getHandle(SigmaTofKToken_);
-  const auto& SigmaTofPHandle = iEvent.getHandle(SigmaTofPToken_);
   const auto& mtdQualMVAHandle = iEvent.getHandle(trackMVAQualToken_);
   const auto& trackAssocHandle = iEvent.getHandle(trackAssocToken_);
-  const auto& pathLengthHandle = iEvent.getHandle(pathLengthToken_);
-  const auto& btlMatchTimeChi2Handle = iEvent.getHandle(btlMatchTimeChi2Token_);
-  const auto& etlMatchTimeChi2Handle = iEvent.getHandle(etlMatchTimeChi2Token_);
-  const auto& btlMatchChi2Handle = iEvent.getHandle(btlMatchChi2Token_);
-  const auto& outermostHitPositionHandle = iEvent.getHandle(outermostHitPositionToken_);
 
-  const auto& allValid = {tMtdHandle.isValid(),
-                          SigmatMtdHandle.isValid(),
-                          t0SrcHandle.isValid(),
-                          Sigmat0SrcHandle.isValid(),
+  const auto& allValid = {mtdTimingInfoHandle.isValid(),
                           t0PidHandle.isValid(),
                           Sigmat0PidHandle.isValid(),
                           t0SafeHandle.isValid(),
                           Sigmat0SafeHandle.isValid(),
-                          SigmaTofPiHandle.isValid(),
-                          SigmaTofKHandle.isValid(),
-                          SigmaTofPHandle.isValid(),
                           mtdQualMVAHandle.isValid(),
-                          trackAssocHandle.isValid(),
-                          pathLengthHandle.isValid(),
-                          btlMatchTimeChi2Handle.isValid(),
-                          etlMatchTimeChi2Handle.isValid(),
-                          btlMatchChi2Handle.isValid(),
-                          outermostHitPositionHandle.isValid()};
+                          trackAssocHandle.isValid()};
 
   if (!std::all_of(allValid.begin(), allValid.end(), [](bool v) { return v; })) {
     if (skipNonExistingSrc_)
@@ -632,24 +588,13 @@ void MtdTracksValidation::analyze(const edm::Event& iEvent, const edm::EventSetu
           << "Attempted to fill a edm::ValueMap edm::Handle with an invalid product";
   }
 
-  const auto& tMtd = *tMtdHandle;
-  const auto& SigmatMtd = *SigmatMtdHandle;
-  const auto& t0Src = *t0SrcHandle;
-  const auto& Sigmat0Src = *Sigmat0SrcHandle;
+  const auto& mtdTimingInfo = *mtdTimingInfoHandle;
   const auto& t0Pid = *t0PidHandle;
   const auto& Sigmat0Pid = *Sigmat0PidHandle;
   const auto& t0Safe = *t0SafeHandle;
   const auto& Sigmat0Safe = *Sigmat0SafeHandle;
-  const auto& SigmaTofPi = *SigmaTofPiHandle;
-  const auto& SigmaTofK = *SigmaTofKHandle;
-  const auto& SigmaTofP = *SigmaTofPHandle;
   const auto& mtdQualMVA = *mtdQualMVAHandle;
   const auto& trackAssoc = *trackAssocHandle;
-  const auto& pathLength = *pathLengthHandle;
-  const auto& btlMatchTimeChi2 = *btlMatchTimeChi2Handle;
-  const auto& etlMatchTimeChi2 = *etlMatchTimeChi2Handle;
-  const auto& btlMatchChi2 = *btlMatchChi2Handle;
-  const auto& outermostHitPosition = *outermostHitPositionHandle;
 
   auto recoToSimH = makeValid(iEvent.getHandle(recoToSimAssociationToken_));
   r2s_ = recoToSimH.product();
@@ -685,15 +630,15 @@ void MtdTracksValidation::analyze(const edm::Event& iEvent, const edm::EventSetu
     bool noCrack = std::abs(trackGen.eta()) < trackMaxBtlEta_ || std::abs(trackGen.eta()) > trackMinEtlEta_;
 
     if (trkRecSel(trackGen)) {
-      meTracktmtd_->Fill(tMtd[trackref]);
-      if (std::round(SigmatMtd[trackref] - Sigmat0Pid[trackref]) != 0) {
+      meTracktmtd_->Fill(mtdTimingInfo[trackref].tmtd());
+      if (std::round(mtdTimingInfo[trackref].sigmaTmtd() - Sigmat0Pid[trackref]) != 0) {
         LogWarning("mtdTracks")
             << "TimeError associated to refitted track is different from TimeError stored in tofPID "
                "sigmat0 ValueMap: this should not happen";
       }
 
-      meTrackt0Src_->Fill(t0Src[trackref]);
-      meTrackSigmat0Src_->Fill(Sigmat0Src[trackref]);
+      meTrackt0Src_->Fill(mtdTimingInfo[trackref].t0());
+      meTrackSigmat0Src_->Fill(mtdTimingInfo[trackref].sigmaT0());
 
       meTrackt0Pid_->Fill(t0Pid[trackref]);
       meTrackSigmat0Pid_->Fill(Sigmat0Pid[trackref]);
@@ -701,14 +646,14 @@ void MtdTracksValidation::analyze(const edm::Event& iEvent, const edm::EventSetu
       meTrackSigmat0SafePid_->Fill(std::log10(std::max(Sigmat0Safe[trackref], 0.001f)));
       meTrackMVAQual_->Fill(mtdQualMVA[trackref]);
 
-      meTrackSigmaTof_[0]->Fill(SigmaTofPi[trackref] * 1e3);  //save as ps
-      meTrackSigmaTof_[1]->Fill(SigmaTofK[trackref] * 1e3);
-      meTrackSigmaTof_[2]->Fill(SigmaTofP[trackref] * 1e3);
-      meTrackSigmaTofvsP_[0]->Fill(trackGen.p(), SigmaTofPi[trackref] * 1e3);
-      meTrackSigmaTofvsP_[1]->Fill(trackGen.p(), SigmaTofK[trackref] * 1e3);
-      meTrackSigmaTofvsP_[2]->Fill(trackGen.p(), SigmaTofP[trackref] * 1e3);
+      meTrackSigmaTof_[0]->Fill(mtdTimingInfo[trackref].sigmaTofPi() * 1e3);  //save as ps
+      meTrackSigmaTof_[1]->Fill(mtdTimingInfo[trackref].sigmaTofK() * 1e3);
+      meTrackSigmaTof_[2]->Fill(mtdTimingInfo[trackref].sigmaTofP() * 1e3);
+      meTrackSigmaTofvsP_[0]->Fill(trackGen.p(), mtdTimingInfo[trackref].sigmaTofPi() * 1e3);
+      meTrackSigmaTofvsP_[1]->Fill(trackGen.p(), mtdTimingInfo[trackref].sigmaTofK() * 1e3);
+      meTrackSigmaTofvsP_[2]->Fill(trackGen.p(), mtdTimingInfo[trackref].sigmaTofP() * 1e3);
 
-      meTrackPathLengthvsEta_->Fill(std::abs(trackGen.eta()), pathLength[trackref]);
+      meTrackPathLengthvsEta_->Fill(std::abs(trackGen.eta()), mtdTimingInfo[trackref].pathLength());
       bool MTDEtlZnegD1 = false;
       bool MTDEtlZnegD2 = false;
       bool MTDEtlZposD1 = false;
@@ -824,9 +769,9 @@ void MtdTracksValidation::analyze(const edm::Event& iEvent, const edm::EventSetu
       }
 
       if (isBTL)
-        meTrackOutermostHitR_->Fill(outermostHitPosition[trackref]);
+        meTrackOutermostHitR_->Fill(mtdTimingInfo[trackref].outermostHitPosition());
       if (isETL)
-        meTrackOutermostHitZ_->Fill(std::abs(outermostHitPosition[trackref]));
+        meTrackOutermostHitZ_->Fill(std::abs(mtdTimingInfo[trackref].outermostHitPosition()));
 
       LogDebug("MtdTracksValidation") << "Track p/pt = " << trackGen.p() << " " << trackGen.pt() << " eta "
                                       << trackGen.eta() << " BTL " << isBTL << " ETL " << isETL << " 2disks "
@@ -1061,28 +1006,28 @@ void MtdTracksValidation::analyze(const edm::Event& iEvent, const edm::EventSetu
               if (isTPmtdDirectBTL) {
                 // -- Track matched to TP with sim hit (direct), correctly associated reco cluster
                 if (isTPmtdDirectCorrectBTL) {
-                  float PLres = computePLres(pathLength[trackref], simClusterEarliestTime_correctAssoc);
+                  float PLres = computePLres(mtdTimingInfo[trackref].pathLength(), simClusterEarliestTime_correctAssoc);
                   meBTLTrackPLRes_->Fill(PLres);
                   meBTLTrackPLResvsSimEta_->Fill(std::abs((*tp_info)->eta()), PLres);
                   meBTLTrackPLResvsRecoEta_->Fill(std::abs(trackGen.eta()), PLres);
                   meBTLTrackPLResvsSimP_->Fill((*tp_info)->p(), PLres);
                   meBTLTrackPLResvsRecoP_->Fill(trackGen.p(), PLres);
-                  meBTLTrackPLResvsRecoPL_->Fill(pathLength[trackref], PLres);
+                  meBTLTrackPLResvsRecoPL_->Fill(mtdTimingInfo[trackref].pathLength(), PLres);
                   meBTLTrackPLResvsSigmadsz_->Fill(std::sqrt(trackGen.covariance(4, 4)), PLres);
 
                   if (optionalPlots_) {
                     meBTLTrackMatchedTPmtdDirectCorrectAssocSimClusSize_->Fill(simClusSize);
                     meBTLTrackMatchedTPmtdDirectCorrectAssocRecoClusSize_->Fill(recoClusSize);
-                    meBTLTrackMatchedTPmtdDirectCorrectAssocTrackOutermostHitR_->Fill(outermostHitPosition[trackref]);
+                    meBTLTrackMatchedTPmtdDirectCorrectAssocTrackOutermostHitR_->Fill(mtdTimingInfo[trackref].outermostHitPosition());
                     meBTLTrackMatchedTPmtdDirectCorrectAssocTrackNdf_->Fill(trackGen.ndof());
                     meBTLTrackMatchedTPmtdDirectCorrectAssocTrackChi2_->Fill(trackGen.chi2());
-                    meBTLTrackMatchedTPmtdDirectCorrectAssocTimeChi2_->Fill(btlMatchTimeChi2[trackref]);
-                    meBTLTrackMatchedTPmtdDirectCorrectAssocTimeChi2vsMVAQual_->Fill(btlMatchTimeChi2[trackref],
+                    meBTLTrackMatchedTPmtdDirectCorrectAssocTimeChi2_->Fill(mtdTimingInfo[trackref].btlMatchTimeChi2());
+                    meBTLTrackMatchedTPmtdDirectCorrectAssocTimeChi2vsMVAQual_->Fill(mtdTimingInfo[trackref].btlMatchTimeChi2(),
                                                                                      mtdQualMVA[trackref]);
-                    meBTLTrackMatchedTPmtdDirectCorrectAssocSpaceChi2_->Fill(btlMatchChi2[trackref]);
+                    meBTLTrackMatchedTPmtdDirectCorrectAssocSpaceChi2_->Fill(mtdTimingInfo[trackref].btlMatchChi2());
                     meBTLTrackMatchedTPmtdDirectCorrectAssocTrackPathLengthvsEta_->Fill(std::abs(trackGen.eta()),
-                                                                                        pathLength[trackref]);
-                    meBTLTrackMatchedTPmtdDirectCorrectAssocTrackPathLength_->Fill(pathLength[trackref]);
+                                                                                        mtdTimingInfo[trackref].pathLength());
+                    meBTLTrackMatchedTPmtdDirectCorrectAssocTrackPathLength_->Fill(mtdTimingInfo[trackref].pathLength());
                   }
                   fillTrackClusterMatchingHistograms(meBTLTrackMatchedTPmtdDirectCorrectAssocEta_,
                                                      meBTLTrackMatchedTPmtdDirectCorrectAssocPt_,
@@ -1105,18 +1050,18 @@ void MtdTracksValidation::analyze(const edm::Event& iEvent, const edm::EventSetu
                     meBTLTrackMatchedTPmtdDirectWrongAssocDeltaPhi_->Fill(simClusterRef_RecoMatch_DeltaPhi);
                     meBTLTrackMatchedTPmtdDirectWrongAssocDeltaZ_->Fill(simClusterRef_RecoMatch_DeltaZ);
                     meBTLTrackMatchedTPmtdDirectWrongAssocTrackIdOff_->Fill(simClusterRef_RecoMatch_trackIdOff);
-                    meBTLTrackMatchedTPmtdDirectWrongAssocTrackOutermostHitR_->Fill(outermostHitPosition[trackref]);
+                    meBTLTrackMatchedTPmtdDirectWrongAssocTrackOutermostHitR_->Fill(mtdTimingInfo[trackref].outermostHitPosition());
                     meBTLTrackMatchedTPmtdDirectWrongAssocTrackNdf_->Fill(trackGen.ndof());
                     meBTLTrackMatchedTPmtdDirectWrongAssocTrackChi2_->Fill(trackGen.chi2());
-                    meBTLTrackMatchedTPmtdDirectWrongAssocDeltaZOutR_->Fill(outermostHitPosition[trackref],
+                    meBTLTrackMatchedTPmtdDirectWrongAssocDeltaZOutR_->Fill(mtdTimingInfo[trackref].outermostHitPosition(),
                                                                             simClusterRef_RecoMatch_DeltaZ);
-                    meBTLTrackMatchedTPmtdDirectWrongAssocTimeChi2_->Fill(btlMatchTimeChi2[trackref]);
-                    meBTLTrackMatchedTPmtdDirectWrongAssocTimeChi2vsMVAQual_->Fill(btlMatchTimeChi2[trackref],
+                    meBTLTrackMatchedTPmtdDirectWrongAssocTimeChi2_->Fill(mtdTimingInfo[trackref].btlMatchTimeChi2());
+                    meBTLTrackMatchedTPmtdDirectWrongAssocTimeChi2vsMVAQual_->Fill(mtdTimingInfo[trackref].btlMatchTimeChi2(),
                                                                                    mtdQualMVA[trackref]);
-                    meBTLTrackMatchedTPmtdDirectWrongAssocSpaceChi2_->Fill(btlMatchChi2[trackref]);
+                    meBTLTrackMatchedTPmtdDirectWrongAssocSpaceChi2_->Fill(mtdTimingInfo[trackref].btlMatchChi2());
                     meBTLTrackMatchedTPmtdDirectWrongAssocTrackPathLengthvsEta_->Fill(std::abs(trackGen.eta()),
-                                                                                      pathLength[trackref]);
-                    meBTLTrackMatchedTPmtdDirectWrongAssocTrackPathLength_->Fill(pathLength[trackref]);
+                                                                                      mtdTimingInfo[trackref].pathLength());
+                    meBTLTrackMatchedTPmtdDirectWrongAssocTrackPathLength_->Fill(mtdTimingInfo[trackref].pathLength());
 
                     if (simClusterRef_RecoMatch_trackIdOff == 0 && isFromSameTP) {
                       fillTrackClusterMatchingHistograms(meBTLTrackMatchedTPmtdDirectWrongAssocEta1_,
@@ -1135,18 +1080,18 @@ void MtdTracksValidation::analyze(const edm::Event& iEvent, const edm::EventSetu
                       meBTLTrackMatchedTPmtdDirectWrongAssocDeltaPhi1_->Fill(simClusterRef_RecoMatch_DeltaPhi);
                       meBTLTrackMatchedTPmtdDirectWrongAssocDeltaZ1_->Fill(simClusterRef_RecoMatch_DeltaZ);
                       meBTLTrackMatchedTPmtdDirectWrongAssocTrackIdOff1_->Fill(simClusterRef_RecoMatch_trackIdOff);
-                      meBTLTrackMatchedTPmtdDirectWrongAssocTrackOutermostHitR1_->Fill(outermostHitPosition[trackref]);
+                      meBTLTrackMatchedTPmtdDirectWrongAssocTrackOutermostHitR1_->Fill(mtdTimingInfo[trackref].outermostHitPosition());
                       meBTLTrackMatchedTPmtdDirectWrongAssocTrackNdf1_->Fill(trackGen.ndof());
                       meBTLTrackMatchedTPmtdDirectWrongAssocTrackChi21_->Fill(trackGen.chi2());
-                      meBTLTrackMatchedTPmtdDirectWrongAssocDeltaZOutR1_->Fill(outermostHitPosition[trackref],
+                      meBTLTrackMatchedTPmtdDirectWrongAssocDeltaZOutR1_->Fill(mtdTimingInfo[trackref].outermostHitPosition(),
                                                                                simClusterRef_RecoMatch_DeltaZ);
-                      meBTLTrackMatchedTPmtdDirectWrongAssocTimeChi21_->Fill(btlMatchTimeChi2[trackref]);
-                      meBTLTrackMatchedTPmtdDirectWrongAssocTimeChi2vsMVAQual1_->Fill(btlMatchTimeChi2[trackref],
+                      meBTLTrackMatchedTPmtdDirectWrongAssocTimeChi21_->Fill(mtdTimingInfo[trackref].btlMatchTimeChi2());
+                      meBTLTrackMatchedTPmtdDirectWrongAssocTimeChi2vsMVAQual1_->Fill(mtdTimingInfo[trackref].btlMatchTimeChi2(),
                                                                                       mtdQualMVA[trackref]);
-                      meBTLTrackMatchedTPmtdDirectWrongAssocSpaceChi21_->Fill(btlMatchChi2[trackref]);
+                      meBTLTrackMatchedTPmtdDirectWrongAssocSpaceChi21_->Fill(mtdTimingInfo[trackref].btlMatchChi2());
                       meBTLTrackMatchedTPmtdDirectWrongAssocTrackPathLengthvsEta1_->Fill(std::abs(trackGen.eta()),
-                                                                                         pathLength[trackref]);
-                      meBTLTrackMatchedTPmtdDirectWrongAssocTrackPathLength1_->Fill(pathLength[trackref]);
+                                                                                         mtdTimingInfo[trackref].pathLength());
+                      meBTLTrackMatchedTPmtdDirectWrongAssocTrackPathLength1_->Fill(mtdTimingInfo[trackref].pathLength());
 
                     } else if (simClusterRef_RecoMatch_trackIdOff > 0 && isFromSameTP) {
                       fillTrackClusterMatchingHistograms(meBTLTrackMatchedTPmtdDirectWrongAssocEta2_,
@@ -1165,18 +1110,18 @@ void MtdTracksValidation::analyze(const edm::Event& iEvent, const edm::EventSetu
                       meBTLTrackMatchedTPmtdDirectWrongAssocDeltaPhi2_->Fill(simClusterRef_RecoMatch_DeltaPhi);
                       meBTLTrackMatchedTPmtdDirectWrongAssocDeltaZ2_->Fill(simClusterRef_RecoMatch_DeltaZ);
                       meBTLTrackMatchedTPmtdDirectWrongAssocTrackIdOff2_->Fill(simClusterRef_RecoMatch_trackIdOff);
-                      meBTLTrackMatchedTPmtdDirectWrongAssocTrackOutermostHitR2_->Fill(outermostHitPosition[trackref]);
+                      meBTLTrackMatchedTPmtdDirectWrongAssocTrackOutermostHitR2_->Fill(mtdTimingInfo[trackref].outermostHitPosition());
                       meBTLTrackMatchedTPmtdDirectWrongAssocTrackNdf2_->Fill(trackGen.ndof());
                       meBTLTrackMatchedTPmtdDirectWrongAssocTrackChi22_->Fill(trackGen.chi2());
-                      meBTLTrackMatchedTPmtdDirectWrongAssocDeltaZOutR2_->Fill(outermostHitPosition[trackref],
+                      meBTLTrackMatchedTPmtdDirectWrongAssocDeltaZOutR2_->Fill(mtdTimingInfo[trackref].outermostHitPosition(),
                                                                                simClusterRef_RecoMatch_DeltaZ);
-                      meBTLTrackMatchedTPmtdDirectWrongAssocTimeChi22_->Fill(btlMatchTimeChi2[trackref]);
-                      meBTLTrackMatchedTPmtdDirectWrongAssocTimeChi2vsMVAQual2_->Fill(btlMatchTimeChi2[trackref],
+                      meBTLTrackMatchedTPmtdDirectWrongAssocTimeChi22_->Fill(mtdTimingInfo[trackref].btlMatchTimeChi2());
+                      meBTLTrackMatchedTPmtdDirectWrongAssocTimeChi2vsMVAQual2_->Fill(mtdTimingInfo[trackref].btlMatchTimeChi2(),
                                                                                       mtdQualMVA[trackref]);
-                      meBTLTrackMatchedTPmtdDirectWrongAssocSpaceChi22_->Fill(btlMatchChi2[trackref]);
+                      meBTLTrackMatchedTPmtdDirectWrongAssocSpaceChi22_->Fill(mtdTimingInfo[trackref].btlMatchChi2());
                       meBTLTrackMatchedTPmtdDirectWrongAssocTrackPathLengthvsEta2_->Fill(std::abs(trackGen.eta()),
-                                                                                         pathLength[trackref]);
-                      meBTLTrackMatchedTPmtdDirectWrongAssocTrackPathLength2_->Fill(pathLength[trackref]);
+                                                                                         mtdTimingInfo[trackref].pathLength());
+                      meBTLTrackMatchedTPmtdDirectWrongAssocTrackPathLength2_->Fill(mtdTimingInfo[trackref].pathLength());
 
                     } else if (!isFromSameTP) {
                       fillTrackClusterMatchingHistograms(meBTLTrackMatchedTPmtdDirectWrongAssocEta3_,
@@ -1195,18 +1140,18 @@ void MtdTracksValidation::analyze(const edm::Event& iEvent, const edm::EventSetu
                       meBTLTrackMatchedTPmtdDirectWrongAssocDeltaPhi3_->Fill(simClusterRef_RecoMatch_DeltaPhi);
                       meBTLTrackMatchedTPmtdDirectWrongAssocDeltaZ3_->Fill(simClusterRef_RecoMatch_DeltaZ);
                       meBTLTrackMatchedTPmtdDirectWrongAssocTrackIdOff3_->Fill(simClusterRef_RecoMatch_trackIdOff);
-                      meBTLTrackMatchedTPmtdDirectWrongAssocTrackOutermostHitR3_->Fill(outermostHitPosition[trackref]);
+                      meBTLTrackMatchedTPmtdDirectWrongAssocTrackOutermostHitR3_->Fill(mtdTimingInfo[trackref].outermostHitPosition());
                       meBTLTrackMatchedTPmtdDirectWrongAssocTrackNdf3_->Fill(trackGen.ndof());
                       meBTLTrackMatchedTPmtdDirectWrongAssocTrackChi23_->Fill(trackGen.chi2());
-                      meBTLTrackMatchedTPmtdDirectWrongAssocDeltaZOutR3_->Fill(outermostHitPosition[trackref],
+                      meBTLTrackMatchedTPmtdDirectWrongAssocDeltaZOutR3_->Fill(mtdTimingInfo[trackref].outermostHitPosition(),
                                                                                simClusterRef_RecoMatch_DeltaZ);
-                      meBTLTrackMatchedTPmtdDirectWrongAssocTimeChi23_->Fill(btlMatchTimeChi2[trackref]);
-                      meBTLTrackMatchedTPmtdDirectWrongAssocTimeChi2vsMVAQual3_->Fill(btlMatchTimeChi2[trackref],
+                      meBTLTrackMatchedTPmtdDirectWrongAssocTimeChi23_->Fill(mtdTimingInfo[trackref].btlMatchTimeChi2());
+                      meBTLTrackMatchedTPmtdDirectWrongAssocTimeChi2vsMVAQual3_->Fill(mtdTimingInfo[trackref].btlMatchTimeChi2(),
                                                                                       mtdQualMVA[trackref]);
-                      meBTLTrackMatchedTPmtdDirectWrongAssocSpaceChi23_->Fill(btlMatchChi2[trackref]);
+                      meBTLTrackMatchedTPmtdDirectWrongAssocSpaceChi23_->Fill(mtdTimingInfo[trackref].btlMatchChi2());
                       meBTLTrackMatchedTPmtdDirectWrongAssocTrackPathLengthvsEta3_->Fill(std::abs(trackGen.eta()),
-                                                                                         pathLength[trackref]);
-                      meBTLTrackMatchedTPmtdDirectWrongAssocTrackPathLength3_->Fill(pathLength[trackref]);
+                                                                                         mtdTimingInfo[trackref].pathLength());
+                      meBTLTrackMatchedTPmtdDirectWrongAssocTrackPathLength3_->Fill(mtdTimingInfo[trackref].pathLength());
                     }
                   }
                   fillTrackClusterMatchingHistograms(meBTLTrackMatchedTPmtdDirectWrongAssocEta_,
@@ -1260,7 +1205,7 @@ void MtdTracksValidation::analyze(const edm::Event& iEvent, const edm::EventSetu
                 if (optionalPlots_) {
                   meBTLTrackMatchedTPmtdDirectNoAssocSimClusSize_->Fill(simClusSize);
                   meBTLTrackMatchedTPmtdDirectNoAssocRecoClusSize_->Fill(recoClusSize);
-                  meBTLTrackMatchedTPmtdDirectNoAssocTrackOutermostHitR_->Fill(outermostHitPosition[trackref]);
+                  meBTLTrackMatchedTPmtdDirectNoAssocTrackOutermostHitR_->Fill(mtdTimingInfo[trackref].outermostHitPosition());
                   meBTLTrackMatchedTPmtdDirectNoAssocTrackNdf_->Fill(trackGen.ndof());
                   meBTLTrackMatchedTPmtdDirectNoAssocTrackChi2_->Fill(trackGen.chi2());
                 }
@@ -1282,13 +1227,13 @@ void MtdTracksValidation::analyze(const edm::Event& iEvent, const edm::EventSetu
             }
             // -- Track matched to TP with sim hit in first etl layer, correctly associated
             if (isTPmtdETLD1 && isTPmtdCorrectETLD1) {
-              float PLres = computePLres(pathLength[trackref], simClusterEarliestTime_correctAssoc);
+              float PLres = computePLres(mtdTimingInfo[trackref].pathLength(), simClusterEarliestTime_correctAssoc);
               meETLTrackPLRes_->Fill(PLres);
               meETLTrackPLResvsSimEta_->Fill(std::abs((*tp_info)->eta()), PLres);
               meETLTrackPLResvsRecoEta_->Fill(std::abs(trackGen.eta()), PLres);
               meETLTrackPLResvsSimP_->Fill((*tp_info)->p(), PLres);
               meETLTrackPLResvsRecoP_->Fill(trackGen.p(), PLres);
-              meETLTrackPLResvsRecoPL_->Fill(pathLength[trackref], PLres);
+              meETLTrackPLResvsRecoPL_->Fill(mtdTimingInfo[trackref].pathLength(), PLres);
               meETLTrackPLResvsSigmadsz_->Fill(std::sqrt(trackGen.covariance(4, 4)), PLres);
             }
             // -- Track matched to TP with sim hit in one etl layer
@@ -1310,8 +1255,8 @@ void MtdTracksValidation::analyze(const edm::Event& iEvent, const edm::EventSetu
                     (isTPmtdETLD1 && isTPmtdETLD2 && ETLdisc1 && ETLdisc2 && isTPmtdCorrectETLD1 &&
                      isTPmtdCorrectETLD2)) {
                   if (optionalPlots_) {
-                    meETLTrackMatchedTPmtd1CorrectAssocTimeChi2_->Fill(etlMatchTimeChi2[trackref]);
-                    meETLTrackMatchedTPmtd1CorrectAssocTimeChi2vsMVAQual_->Fill(etlMatchTimeChi2[trackref],
+                    meETLTrackMatchedTPmtd1CorrectAssocTimeChi2_->Fill(mtdTimingInfo[trackref].etlMatchTimeChi2());
+                    meETLTrackMatchedTPmtd1CorrectAssocTimeChi2vsMVAQual_->Fill(mtdTimingInfo[trackref].etlMatchTimeChi2(),
                                                                                 mtdQualMVA[trackref]);
                   }
                   fillTrackClusterMatchingHistograms(meETLTrackMatchedTPmtd1CorrectAssocEta_,
@@ -1329,8 +1274,8 @@ void MtdTracksValidation::analyze(const edm::Event& iEvent, const edm::EventSetu
                 // - at least one reco hit is incorrectly associated or, if two sim hits, one reco hit is missing
                 else if ((isTPmtdETLD1 && !isTPmtdCorrectETLD1) || (isTPmtdETLD2 && !isTPmtdCorrectETLD2)) {
                   if (optionalPlots_) {
-                    meETLTrackMatchedTPmtd1WrongAssocTimeChi2_->Fill(etlMatchTimeChi2[trackref]);
-                    meETLTrackMatchedTPmtd1WrongAssocTimeChi2vsMVAQual_->Fill(etlMatchTimeChi2[trackref],
+                    meETLTrackMatchedTPmtd1WrongAssocTimeChi2_->Fill(mtdTimingInfo[trackref].etlMatchTimeChi2());
+                    meETLTrackMatchedTPmtd1WrongAssocTimeChi2vsMVAQual_->Fill(mtdTimingInfo[trackref].etlMatchTimeChi2(),
                                                                               mtdQualMVA[trackref]);
                   }
 
@@ -1352,8 +1297,8 @@ void MtdTracksValidation::analyze(const edm::Event& iEvent, const edm::EventSetu
                 // - each hit correctly associated to the track
                 if (ETLdisc1 && ETLdisc2 && isTPmtdCorrectETLD1 && isTPmtdCorrectETLD2) {
                   if (optionalPlots_) {
-                    meETLTrackMatchedTPmtd2CorrectAssocTimeChi2_->Fill(etlMatchTimeChi2[trackref]);
-                    meETLTrackMatchedTPmtd2CorrectAssocTimeChi2vsMVAQual_->Fill(etlMatchTimeChi2[trackref],
+                    meETLTrackMatchedTPmtd2CorrectAssocTimeChi2_->Fill(mtdTimingInfo[trackref].etlMatchTimeChi2());
+                    meETLTrackMatchedTPmtd2CorrectAssocTimeChi2vsMVAQual_->Fill(mtdTimingInfo[trackref].etlMatchTimeChi2(),
                                                                                 mtdQualMVA[trackref]);
                   }
                   fillTrackClusterMatchingHistograms(meETLTrackMatchedTPmtd2CorrectAssocEta_,
@@ -1371,8 +1316,8 @@ void MtdTracksValidation::analyze(const edm::Event& iEvent, const edm::EventSetu
                 // - at least one reco hit incorrectly associated or one hit missing
                 else if ((ETLdisc1 || ETLdisc2) && (!isTPmtdCorrectETLD1 || !isTPmtdCorrectETLD2)) {
                   if (optionalPlots_) {
-                    meETLTrackMatchedTPmtd2WrongAssocTimeChi2_->Fill(etlMatchTimeChi2[trackref]);
-                    meETLTrackMatchedTPmtd2WrongAssocTimeChi2vsMVAQual_->Fill(etlMatchTimeChi2[trackref],
+                    meETLTrackMatchedTPmtd2WrongAssocTimeChi2_->Fill(mtdTimingInfo[trackref].etlMatchTimeChi2());
+                    meETLTrackMatchedTPmtd2WrongAssocTimeChi2vsMVAQual_->Fill(mtdTimingInfo[trackref].etlMatchTimeChi2(),
                                                                               mtdQualMVA[trackref]);
                   }
                   fillTrackClusterMatchingHistograms(meETLTrackMatchedTPmtd2WrongAssocEta_,
@@ -1439,7 +1384,7 @@ void MtdTracksValidation::analyze(const edm::Event& iEvent, const edm::EventSetu
                 meBTLTrackMatchedTPnomtdAssocRecoClusSize_->Fill(recoClusSize);
                 meBTLTrackMatchedTPnomtdAssocTrackChi2_->Fill(trackGen.chi2());
                 meBTLTrackMatchedTPnomtdAssocTrackNdf_->Fill(trackGen.ndof());
-                meBTLTrackMatchedTPnomtdAssocTrackOutermostHitR_->Fill(outermostHitPosition[trackref]);
+                meBTLTrackMatchedTPnomtdAssocTrackOutermostHitR_->Fill(mtdTimingInfo[trackref].outermostHitPosition());
               }
               fillTrackClusterMatchingHistograms(meBTLTrackMatchedTPnomtdAssocEta_,
                                                  meBTLTrackMatchedTPnomtdAssocPt_,
@@ -3361,20 +3306,13 @@ void MtdTracksValidation::fillDescriptions(edm::ConfigurationDescriptions& descr
   desc.add<edm::InputTag>("sigmat0Src", edm::InputTag("trackExtenderWithMTD:generalTracksigmat0"));
   desc.add<edm::InputTag>("trackAssocSrc", edm::InputTag("trackExtenderWithMTD:generalTrackassoc"))
       ->setComment("Association between General and MTD Extended tracks");
-  desc.add<edm::InputTag>("pathLengthSrc", edm::InputTag("trackExtenderWithMTD:generalTrackPathLength"));
-  desc.add<edm::InputTag>("btlMatchTimeChi2", edm::InputTag("trackExtenderWithMTD:btlMatchTimeChi2"));
-  desc.add<edm::InputTag>("etlMatchTimeChi2", edm::InputTag("trackExtenderWithMTD:etlMatchTimeChi2"));
-  desc.add<edm::InputTag>("btlMatchChi2", edm::InputTag("trackExtenderWithMTD:btlMatchChi2"));
+  desc.add<edm::InputTag>("mtdTimingInfoSrc", edm::InputTag("trackExtenderWithMTD:mtdTimingInfo"))
+      ->setComment("Input ValueMap of MTDTimingInfo from TrackExtenderWithMTD");
   desc.add<edm::InputTag>("t0SafePID", edm::InputTag("tofPID:t0safe"));
   desc.add<edm::InputTag>("sigmat0SafePID", edm::InputTag("tofPID:sigmat0safe"));
   desc.add<edm::InputTag>("sigmat0PID", edm::InputTag("tofPID:sigmat0"));
   desc.add<edm::InputTag>("t0PID", edm::InputTag("tofPID:t0"));
-  desc.add<edm::InputTag>("sigmaTofPi", edm::InputTag("trackExtenderWithMTD:generalTrackSigmaTofPi"));
-  desc.add<edm::InputTag>("sigmaTofK", edm::InputTag("trackExtenderWithMTD:generalTrackSigmaTofK"));
-  desc.add<edm::InputTag>("sigmaTofP", edm::InputTag("trackExtenderWithMTD:generalTrackSigmaTofP"));
   desc.add<edm::InputTag>("trackMVAQual", edm::InputTag("mtdTrackQualityMVA:mtdQualMVA"));
-  desc.add<edm::InputTag>("outermostHitPositionSrc",
-                          edm::InputTag("trackExtenderWithMTD:generalTrackOutermostHitPosition"));
   desc.add<double>("trackMaximumPt", 12.);  // [GeV]
   desc.add<double>("trackMaximumBtlEta", 1.5);
   desc.add<double>("trackMinimumEtlEta", 1.6);

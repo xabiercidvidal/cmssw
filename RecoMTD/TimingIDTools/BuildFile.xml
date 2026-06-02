@@ -1,3 +1,4 @@
+<use name="DataFormats/MTDReco"/>
 <use name="DataFormats/TrackReco"/>
 <use name="DataFormats/VertexReco"/>
 <use name="CommonTools/MVAUtils"/>

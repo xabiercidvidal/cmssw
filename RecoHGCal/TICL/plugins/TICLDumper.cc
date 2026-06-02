@@ -33,6 +33,7 @@
 #include "DataFormats/DetId/interface/DetId.h"
 #include "DataFormats/Math/interface/Point3D.h"
 #include "DataFormats/GeometrySurface/interface/BoundDisk.h"
+#include "DataFormats/MTDReco/interface/MTDTimingInfo.h"
 #include "DataFormats/HGCalReco/interface/Common.h"
 #include "DataFormats/HGCRecHit/interface/HGCRecHitCollections.h"
 #include "SimDataFormats/CaloAnalysis/interface/CaloParticle.h"
@@ -602,10 +603,7 @@ private:
   const edm::EDGetTokenT<edm::ValueMap<float>> tracks_time_token_;
   const edm::EDGetTokenT<edm::ValueMap<float>> tracks_time_quality_token_;
   const edm::EDGetTokenT<edm::ValueMap<float>> tracks_time_err_token_;
-  const edm::EDGetTokenT<edm::ValueMap<float>> tracks_beta_token_;
-  const edm::EDGetTokenT<edm::ValueMap<float>> tracks_time_mtd_token_;
-  const edm::EDGetTokenT<edm::ValueMap<float>> tracks_time_mtd_err_token_;
-  const edm::EDGetTokenT<edm::ValueMap<GlobalPoint>> tracks_pos_mtd_token_;
+  const edm::EDGetTokenT<edm::ValueMap<reco::MTDTimingInfo>> tracks_mtd_timing_info_token_;
   const edm::EDGetTokenT<std::vector<double>> hgcaltracks_x_token_;
   const edm::EDGetTokenT<std::vector<double>> hgcaltracks_y_token_;
   const edm::EDGetTokenT<std::vector<double>> hgcaltracks_z_token_;
@@ -933,10 +931,8 @@ TICLDumper::TICLDumper(const edm::ParameterSet& ps)
       tracks_time_token_(consumes<edm::ValueMap<float>>(ps.getParameter<edm::InputTag>("tracksTime"))),
       tracks_time_quality_token_(consumes<edm::ValueMap<float>>(ps.getParameter<edm::InputTag>("tracksTimeQual"))),
       tracks_time_err_token_(consumes<edm::ValueMap<float>>(ps.getParameter<edm::InputTag>("tracksTimeErr"))),
-      tracks_beta_token_(consumes<edm::ValueMap<float>>(ps.getParameter<edm::InputTag>("tracksBeta"))),
-      tracks_time_mtd_token_(consumes<edm::ValueMap<float>>(ps.getParameter<edm::InputTag>("tracksTimeMtd"))),
-      tracks_time_mtd_err_token_(consumes<edm::ValueMap<float>>(ps.getParameter<edm::InputTag>("tracksTimeMtdErr"))),
-      tracks_pos_mtd_token_(consumes<edm::ValueMap<GlobalPoint>>(ps.getParameter<edm::InputTag>("tracksPosMtd"))),
+      tracks_mtd_timing_info_token_(
+          consumes<edm::ValueMap<reco::MTDTimingInfo>>(ps.getParameter<edm::InputTag>("tracksMtdTimingInfo"))),
       muons_token_(consumes<std::vector<reco::Muon>>(ps.getParameter<edm::InputTag>("muons"))),
       clustersTime_token_(
           consumes<edm::ValueMap<std::pair<float, float>>>(ps.getParameter<edm::InputTag>("layer_clustersTime"))),
@@ -1209,25 +1205,11 @@ void TICLDumper::analyze(const edm::Event& event, const edm::EventSetup& setup) 
   event.getByToken(tracks_time_err_token_, trackTimeErr_h);
   const auto& trackTimeErr = *trackTimeErr_h;
 
-  edm::Handle<edm::ValueMap<float>> trackBeta_h;
-  event.getByToken(tracks_beta_token_, trackBeta_h);
-  const auto& trackBeta = *trackBeta_h;
+  const auto& trackMtdTimingInfo = event.get(tracks_mtd_timing_info_token_);
 
   edm::Handle<edm::ValueMap<float>> trackTimeQual_h;
   event.getByToken(tracks_time_quality_token_, trackTimeQual_h);
   const auto& trackTimeQual = *trackTimeQual_h;
-
-  edm::Handle<edm::ValueMap<float>> trackTimeMtd_h;
-  event.getByToken(tracks_time_mtd_token_, trackTimeMtd_h);
-  const auto& trackTimeMtd = *trackTimeMtd_h;
-
-  edm::Handle<edm::ValueMap<float>> trackTimeMtdErr_h;
-  event.getByToken(tracks_time_mtd_err_token_, trackTimeMtdErr_h);
-  const auto& trackTimeMtdErr = *trackTimeMtdErr_h;
-
-  edm::Handle<edm::ValueMap<GlobalPoint>> trackPosMtd_h;
-  event.getByToken(tracks_pos_mtd_token_, trackPosMtd_h);
-  const auto& trackPosMtd = *trackPosMtd_h;
 
   // superclustering
   if (saveSuperclustering_)  // To support running with Mustache
@@ -1545,10 +1527,10 @@ void TICLDumper::analyze(const edm::Event& event, const edm::EventSetup& setup) 
       track_time.push_back(trackTime[trackref]);
       track_time_quality.push_back(trackTimeQual[trackref]);
       track_time_err.push_back(trackTimeErr[trackref]);
-      track_beta.push_back(trackBeta[trackref]);
-      track_time_mtd.push_back(trackTimeMtd[trackref]);
-      track_time_mtd_err.push_back(trackTimeMtdErr[trackref]);
-      track_pos_mtd.push_back(trackPosMtd[trackref]);
+      track_beta.push_back(trackMtdTimingInfo[trackref].beta());
+      track_time_mtd.push_back(trackMtdTimingInfo[trackref].tmtd());
+      track_time_mtd_err.push_back(trackMtdTimingInfo[trackref].sigmaTmtd());
+      track_pos_mtd.push_back(trackMtdTimingInfo[trackref].mtdPos());
       track_nhits.push_back(tracks[i].recHitsSize());
       int muId = PFMuonAlgo::muAssocToTrack(trackref, *muons_h);
       if (muId != -1) {
@@ -1607,10 +1589,8 @@ void TICLDumper::fillDescriptions(edm::ConfigurationDescriptions& descriptions) 
   desc.add<edm::InputTag>("tracksTime", edm::InputTag("tofPID:t0"));
   desc.add<edm::InputTag>("tracksTimeQual", edm::InputTag("mtdTrackQualityMVA:mtdQualMVA"));
   desc.add<edm::InputTag>("tracksTimeErr", edm::InputTag("tofPID:sigmat0"));
-  desc.add<edm::InputTag>("tracksBeta", edm::InputTag("trackExtenderWithMTD:generalTrackBeta"));
-  desc.add<edm::InputTag>("tracksTimeMtd", edm::InputTag("trackExtenderWithMTD:generalTracktmtd"));
-  desc.add<edm::InputTag>("tracksTimeMtdErr", edm::InputTag("trackExtenderWithMTD:generalTracksigmatmtd"));
-  desc.add<edm::InputTag>("tracksPosMtd", edm::InputTag("trackExtenderWithMTD:generalTrackmtdpos"));
+  desc.add<edm::InputTag>("tracksMtdTimingInfo", edm::InputTag("trackExtenderWithMTD:mtdTimingInfo"))
+      ->setComment("Input ValueMap of MTDTimingInfo from TrackExtenderWithMTD");
   desc.add<edm::InputTag>("muons", edm::InputTag("muons1stStep"));
   desc.add<edm::InputTag>("superclustering", edm::InputTag("ticlTracksterLinksSuperclusteringDNN"));
   desc.add<edm::InputTag>("recoSuperClusters", edm::InputTag("particleFlowSuperClusterHGCal"))
