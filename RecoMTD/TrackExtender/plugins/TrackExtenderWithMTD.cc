@@ -170,6 +170,7 @@ private:
 
   const bool useVertex_;
   const float dzCut_;
+  const bool doIntermediateBTLRefit_;
 
   static constexpr float trackMaxBtlEta_ = 1.5;
 };
@@ -187,7 +188,8 @@ TrackExtenderWithMTDT<TrackCollection>::TrackExtenderWithMTDT(const ParameterSet
       transientTrackBuilder_(iConfig.getParameter<std::string>("TransientTrackBuilder")),
       matcher_(iConfig.getParameterSet("MTDHitMatcher"), consumesCollector()),
       useVertex_(iConfig.getParameter<bool>("useVertex")),
-      dzCut_(iConfig.getParameter<double>("dZCut")) {
+      dzCut_(iConfig.getParameter<double>("dZCut")),
+      doIntermediateBTLRefit_(iConfig.getParameter<bool>("doIntermediateBTLRefit")) {
   if (useVertex_) {
     vtxToken_ = consumes<VertexCollection>(iConfig.getParameter<edm::InputTag>("vtxSrc"));
   }
@@ -258,6 +260,7 @@ void TrackExtenderWithMTDT<TrackCollection>::fillDescriptions(edm::Configuration
   desc.add<edm::ParameterSetDescription>("MTDHitMatcher", matcherDesc);
   desc.add<bool>("useVertex", false);
   desc.add<double>("dZCut", 0.1);
+  desc.add<bool>("doIntermediateBTLRefit", false);
   descriptions.add("trackExtenderWithMTDBase", desc);
 }
 
@@ -394,10 +397,31 @@ void TrackExtenderWithMTDT<TrackCollection>::produce(edm::Event& ev, const edm::
         mBTL = btlResult.bestHit;
         mtdthits.insert(mtdthits.end(), btlResult.hits.begin(), btlResult.hits.end());
 
-        // in the future this should include an intermediate refit before propagating to the ETL
-        // for now it is ok
+        // Refit with BTL hits to obtain an updated outermost state for ETL propagation,
+        // correcting for scattering in BTL material (transition-region tracks, |eta|~1.5).
+        TrajectoryStateOnSurface tosForETL = tsos;
+        if (doIntermediateBTLRefit_ && !btlResult.hits.empty()) {
+          auto thitsWithBTL = thits;
+          if (checkRecHitsOrdering(thits) == RefitDirection::insideOut) {
+            thitsWithBTL.insert(thitsWithBTL.end(), btlResult.hits.begin(), btlResult.hits.end());
+          } else {
+            TransientTrackingRecHit::ConstRecHitContainer prepended = btlResult.hits;
+            std::reverse(prepended.begin(), prepended.end());
+            prepended.insert(prepended.end(), thitsWithBTL.begin(), thitsWithBTL.end());
+            thitsWithBTL = std::move(prepended);
+          }
+          const auto& btlTrajs = theTransformer->transform(ttrack, thitsWithBTL);
+          if (!btlTrajs.empty() && btlTrajs.front().isValid()) {
+            const auto& btlTraj = btlTrajs.front();
+            tosForETL = btlTraj.direction() == alongMomentum ? btlTraj.lastMeasurement().updatedState()
+                                                              : btlTraj.firstMeasurement().updatedState();
+            LogTrace("TrackExtenderWithMTD")
+                << "TrackExtenderWithMTD: intermediate BTL refit succeeded, using updated TSOS for ETL";
+          }
+        }
+
         auto etlResult = matcher_.matchETL(
-            tsos, trajs, pmag2, pathlength0, trs0, hits, geo.product(), prop, bs, trackVtxTime, trackVtxTimeError);
+            tosForETL, trajs, pmag2, pathlength0, trs0, hits, geo.product(), prop, bs, trackVtxTime, trackVtxTimeError);
         mETL = etlResult.bestHit;
         mtdthits.insert(mtdthits.end(), etlResult.hits.begin(), etlResult.hits.end());
       }
