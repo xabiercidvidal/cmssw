@@ -609,8 +609,6 @@ void TrackExtenderWithMTDT<TrackCollection>::produce(edm::Event& ev, const edm::
         mtdInfo.setSigmaTofPi(sigmatofpi);
         mtdInfo.setSigmaTofK(sigmatofk);
         mtdInfo.setSigmaTofP(sigmatofp);
-        mtdInfo.setNpixBarrel(backtrack.hitPattern().numberOfValidPixelBarrelHits());
-        mtdInfo.setNpixEndcap(backtrack.hitPattern().numberOfValidPixelEndcapHits());
         if (mBTL.hit || mETL.hit) {
           mtdInfo.setOutermostHitPosition(
               mBTL.hit ? (float)(*track).outerRadius()
@@ -625,6 +623,9 @@ void TrackExtenderWithMTDT<TrackCollection>::produce(edm::Event& ev, const edm::
         for (unsigned ihit = hitsstart; ihit < hitsend; ++ihit) {
           backtrack.appendHitPattern((*outhits)[ihit], ttopo);
         }
+        // hit pattern is only fully populated after appendHitPattern above, so npix counts must be read afterwards
+        mtdInfo.setNpixBarrel(backtrack.hitPattern().numberOfValidPixelBarrelHits());
+        mtdInfo.setNpixEndcap(backtrack.hitPattern().numberOfValidPixelEndcapHits());
 #ifdef EDM_ML_DEBUG
         LogTrace("TrackExtenderWithMTD") << "TrackExtenderWithMTD: hit pattern of refitted track";
         for (int i = 0; i < backtrack.hitPattern().numberOfAllHits(reco::HitPattern::TRACK_HITS); i++) {
